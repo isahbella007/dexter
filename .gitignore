@@ -1,0 +1,11 @@
+node_modules
+logs
+coverage
+ui
+dist
+build
+ignore.txt
+.env.development
+.env.production
+.env.test
+.env.staging
