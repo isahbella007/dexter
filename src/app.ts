@@ -11,6 +11,8 @@ import session from 'express-session';
 import { config } from './config';
 import { GeneralRateLimiter } from './middleware/rateLimiter';
 import { ErrorHandler } from './middleware/errorHandler';
+import { createSubPlan } from './scripts/subscriptionPlan';
+import routes from './routes';
 
 const app = express();
 
@@ -24,6 +26,9 @@ app.use(
     allowedHeaders: ['Content-Type', 'Authorization']
   })
 );
+
+// In your Express setup, BEFORE routes
+// app.use(express.raw({type: 'application/json'}));
 
 // Content Type
 app.use(express.json());
@@ -43,7 +48,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // Routes
-// app.use(routes);
+app.use(routes);
 
 // Logging
 app.use(httpLogger);
@@ -62,6 +67,8 @@ app.use(ErrorHandler.handle);
 connectToDatabase()
   .then(() => {
     logger.info('MongoDB connected successfully');
+    // call the function that then creates the subscriptions used in the system with their product/plan id for free and pro
+    // createSubPlan()
   })
   .catch((error) => {
     logger.error('Failed to connect to MongoDB:', error);

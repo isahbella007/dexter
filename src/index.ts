@@ -5,6 +5,7 @@ import app from './app';
 
 const startServer = async () => {
   try {
+    console.log('we called the port')
     const server = app.listen(config.port, () => {
       logger.info(`Server running on port http://localhost:${config.port}`);
     });

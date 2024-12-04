@@ -7,7 +7,9 @@ import { config } from '../config';
 interface JwtPayload {
     id: string;
     email: string;
-    role: string;
+    role?: string;
+    iat?: number;
+    exp?: number
   }
   
 export const authenticate = async (
@@ -22,7 +24,7 @@ export const authenticate = async (
       }
   
       const token = authHeader.split(' ')[1]; // Bearer <token>
-      const decoded = jwt.verify(token, config.jwt.secret) as JwtPayload;
+      const decoded = jwt.verify(token, config.jwt.secret) as Partial<JwtPayload>;
   
       const user = await User.findById(decoded.id).select('-passwordHash');
       if (!user) {
