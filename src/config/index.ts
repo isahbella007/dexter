@@ -15,7 +15,7 @@ const configSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid('development', 'production', 'test', 'staging')
     .default('development'),
-  PORT: Joi.number().default(3000),
+  PORT: Joi.string().required(),
   MONGODB_URI: Joi.string().required(),
   APP_URL:Joi.string().required(),
   JWT_SECRET: Joi.string().required(),
