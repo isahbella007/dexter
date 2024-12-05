@@ -12,10 +12,19 @@ export const chatController = {
         if(error) throw ErrorBuilder.badRequest(error.details[0].message)
         const {message, chatId} = value
     
-        const user = req.user as IUser;
-        const visitorId = (req as Express.Request & { visitor?: { id: string } }).visitor?.id;
-        console.log('chat controller =>', (req.user as IUser)._id)
-        const response = await chatService.generateResponse(message, chatId, user._id, visitorId)
+        let user:IUser | null = null;
+        let visitorId:string | undefined = undefined;
+        if(req.user as IUser){ 
+            user = req.user as IUser;
+        }
+        
+        if(req.cookies.visitorId){ 
+            visitorId = req.cookies.visitorId
+        }
+        
+        console.log('chat controller user =>', user?._id)
+        console.log('chat controller visitorId =>', visitorId)
+        const response = await chatService.generateResponse(message, chatId, user?._id, visitorId)
         ResponseFormatter.success(res, response, 'Response generated successfully')
     }), 
     
@@ -32,11 +41,74 @@ export const chatController = {
         const {value, error} = getChatDetailSchema.validate(req.query)
         if(error) throw ErrorBuilder.badRequest(error.details[0].message)
 
-        const user = req.user as IUser;
-        const visitorId = (req as Express.Request & { visitor?: { id: string } }).visitor?.id;
+        let user:IUser | null = null;
+        let visitorId:string | undefined = undefined;
+        if(req.user as IUser){ 
+            user = req.user as IUser;
+        }
+        
+        if(req.cookies.visitorId){ 
+            visitorId = req.cookies.visitorId
+        }
+        
         const chatId  = req.query.chatId as string;
 
-        const chat = await chatService.getChatDetail(chatId, user._id, visitorId);
+        const chat = await chatService.getChatDetail(chatId, user?._id, visitorId);
         ResponseFormatter.success(res, chat, 'Chat details retrieved successfully');
+    }),
+
+    archiveChat: asyncHandler(async (req: Request, res: Response) => {
+        const chatId  = req.query.chatId as string;
+
+        await chatService.archiveChat(chatId, (req.user as IUser)._id);
+        ResponseFormatter.success(res, null, 'Chat archived successfully');
+    }),
+
+    archiveAllChats: asyncHandler(async (req: Request, res: Response) => {
+        await chatService.archiveAllChats((req.user as IUser)._id);
+        ResponseFormatter.success(res, null, 'All chats archived successfully');
+    }),
+
+    restoreArchivedChats: asyncHandler(async (req: Request, res: Response) => {
+        await chatService.restoreArchivedChats((req.user as IUser)._id);
+        ResponseFormatter.success(res, null, 'All chats restored successfully');
+    }),
+
+    deleteAllChats: asyncHandler(async (req: Request, res: Response) => {
+        await chatService.deleteAllChats((req.user as IUser)._id);
+        ResponseFormatter.success(res, null, 'All chats deleted successfully');
+    }),
+
+    exportChatData: asyncHandler(async (req: Request, res: Response) => {
+        const format = 'csv';
+        const data = await chatService.exportChatData((req.user as IUser)._id, format);
+        // Set headers to prompt file download
+        res.setHeader('Content-Disposition', 'attachment; filename="chats.csv"');
+        res.setHeader('Content-Type', 'text/csv');
+
+        res.send(data);
+    }),
+
+    createShareLink: asyncHandler(async (req: Request, res: Response) => {
+        const chatId  = req.query.chatId as string;
+        const expiresIn = parseInt(req.query.expiresIn as string) || 7;
+
+        const shareToken = await chatService.createShareLink(chatId, (req.user as IUser)._id, expiresIn);
+        ResponseFormatter.success(res, { shareToken }, 'Share link created successfully');
+    }),
+
+    getSharedChat: asyncHandler(async (req: Request, res: Response) => {
+        const shareToken  = req.query.shareToken as string;
+
+        const chat = await chatService.getSharedChat(shareToken);
+        ResponseFormatter.success(res, chat, 'Shared chat retrieved successfully');
+    }),
+
+    revokeShareLink: asyncHandler(async (req: Request, res: Response) => {
+        const shareToken  = req.query.shareToken as string;
+
+        await chatService.revokeShareLink(shareToken, (req.user as IUser)._id);
+        ResponseFormatter.success(res, null, 'Share link revoked successfully');
     })
+
 }

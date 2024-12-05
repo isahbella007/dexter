@@ -9,13 +9,25 @@ import { User } from "../../models/User";
 import { generateToken } from "../../utils/helpers/jwt";
 import { verifyRefreshToken } from "../../utils/helpers/jwt";
 import { IUser } from "../../models/interfaces/UserInterface";
+import { getClientIp } from "../../utils/helpers/ipHelper";
 
 export const authController = { 
     register: asyncHandler(async(req:Request, res:Response) => { 
         const {error, value} = registerSchema.validate(req.body)
         if(error) throw ErrorBuilder.badRequest(error.details[0].message)
-        const user = await authService.registerUser(value);
+        
+        const ipAddress = getClientIp(req);
+        let visitorId:string | undefined = undefined;
+        
+        
+        if(req.cookies.visitorId){ 
+            visitorId = req.cookies.visitorId
+        }
+        const user = await authService.registerUser(value, ipAddress, visitorId);
         const responseData = { userId: user._id };
+        if(visitorId){ 
+            res.clearCookie('visitorId')
+        }
         ResponseFormatter.success(
             res,
             responseData,

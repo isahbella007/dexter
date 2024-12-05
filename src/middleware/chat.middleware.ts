@@ -1,6 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { authenticate } from './auth.middleware';
 import { v4 as uuidv4 } from 'uuid';
+import { getClientIp } from '../utils/helpers/ipHelper';
+import { User } from '../models/User';
+import { ErrorBuilder } from '../utils/errors/ErrorBuilder';
 
 export const chatAuth = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -14,9 +17,18 @@ export const chatAuth = async (req: Request, res: Response, next: NextFunction) 
 
         // If no auth header, treat as visitor
         // Check for existing visitor ID in cookies
+        console.log('Runs to here')
         let visitorId = req.cookies.visitorId;
+        console.log('Stops here')
+        const clientIp = getClientIp(req);
+        console.log('The client IP is', clientIp)
         
         if (!visitorId) {
+            // check if the IP already has a registered user 
+            const existingUser = await User.findOne({ ipAddress: clientIp });
+            if(existingUser){ 
+                throw ErrorBuilder.forbidden('An account already exists with this IP address. Please login to continue.')
+            }
             // Generate new visitor ID
             visitorId = uuidv4();
             
@@ -29,9 +41,10 @@ export const chatAuth = async (req: Request, res: Response, next: NextFunction) 
             });
         }
         // Attach visitor info to request
-        (req as Express.Request & { visitor?: { id: string, isVisitor: boolean } }).visitor = {
+        (req as Express.Request & { visitor?: { id: string, isVisitor: boolean, ip: string } }).visitor = {
             id: visitorId,
-            isVisitor: true
+            isVisitor: true, 
+            ip:clientIp
         };
 
         next();

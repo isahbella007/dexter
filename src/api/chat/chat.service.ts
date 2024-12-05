@@ -5,10 +5,11 @@ import { ChatCompletionMessageParam } from 'openai/resources/chat';
 import { ErrorBuilder } from "../../utils/errors/ErrorBuilder";
 import { dateUtils } from "../../utils/helpers/date";
 import { subscriptionFeatureService } from "../../utils/subscription/subscriptionService";
+import { ChatShare } from "../../models/ChatShare";
+import { config } from "../../config";
+import crypto from 'crypto';
 
 export class ChatService{ 
-    
-
     async generateResponse(message: string, chatId?:string, userId?:string, visitorId?:string){ 
         // check the user usage limit
         console.log('chat service =>', userId)
@@ -25,7 +26,8 @@ export class ChatService{
             chat = await Chat.findById(chatId)
         }
         if(!chat){ 
-            const title = await this.generateChatTitle(message)
+            // const title = await this.generateChatTitle(message)
+            const title = "Testing without title"
             chat = await Chat.create({
                 userId,
                 visitorId,
@@ -42,14 +44,17 @@ export class ChatService{
         })
 
         // generate response 
-        const completion = await this.generateAIResponse(chat.messages.map(m => ({
-            role: m.role,
-            content: m.content
-        })),
-        model)
+        // const completion = await this.generateAIResponse(chat.messages.map(m => ({
+        //     role: m.role,
+        //     content: m.content
+        // })),
+        // model)
 
         // add ai response 
-        const aiResponse = completion.choices[0].message.content || 'Something went wrong'
+        // const aiResponse = completion.choices[0].message.content || 'Something went wrong'
+
+        // dummy response 
+        const aiResponse = "This is a dummy response"
         chat.messages.push({
             role: 'assistant',
             content: aiResponse,
@@ -94,6 +99,136 @@ export class ChatService{
         }
         
         return chat;
+    }
+
+    async archiveChat(chatId: string, userId: string): Promise<void> {
+        const chat = await Chat.findOne({ _id: chatId, userId });
+        if (!chat) {
+            throw ErrorBuilder.notFound('Chat not found');
+        }
+        
+        chat.isArchived = true;
+        chat.archivedAt = new Date();
+        await chat.save();
+    }
+
+    async archiveAllChats(userId: string): Promise<void> {
+        const now = new Date();
+        await Chat.updateMany(
+            { userId, isArchived: false },
+            { 
+                $set: { 
+                    isArchived: true,
+                    archivedAt: now
+                }
+            }
+        );
+    }
+
+    async restoreArchivedChats(userId: string): Promise<void> {
+        const now = new Date();
+        await Chat.updateMany(
+            { userId, isArchived: true },
+            { 
+                $set: { 
+                    isArchived: false,
+                    archivedAt: now
+                }
+            }
+        );
+    }
+
+    async deleteAllChats(userId: string): Promise<void> {
+        await Chat.deleteMany({ userId });
+    }
+
+    async exportChatData(userId: string, format: 'json' | 'csv' = 'json'): Promise<any> {
+        const chats = await Chat.find({ userId })
+            .sort({ createdAt: -1 });
+
+        if (format === 'csv') {
+            return this.convertChatsToCSV(chats);
+        }
+
+        return chats.map(chat => ({
+            id: chat._id,
+            title: chat.title,
+            messages: chat.messages.map(msg => ({
+                role: msg.role,
+                content: msg.content,
+                timestamp: msg.timestamp
+            }))
+        }));
+    }
+
+    async createShareLink(chatId: string, userId: string, expiresIn: number = 7): Promise<string> {
+        const chat = await Chat.findOne({ _id: chatId, userId });
+        if (!chat) {
+            throw ErrorBuilder.notFound('Chat not found');
+        }
+    
+        const shareToken = crypto.randomBytes(32).toString('hex');
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + expiresIn);
+    
+        await ChatShare.create({
+            chatId,
+            userId,
+            shareToken,
+            expiresAt
+        });
+    
+        return shareToken;
+    }
+
+    async getSharedChat(shareToken: string): Promise<any> {
+        const share = await ChatShare.findOne({
+            shareToken,
+            expiresAt: { $gt: new Date() },
+            isRevoked: false
+        });
+    
+        if (!share) {
+            throw ErrorBuilder.notFound('Shared chat not found or link expired');
+        }
+    
+        share.accessCount += 1;
+        await share.save();
+    
+        const chat = await Chat.findById(share.chatId);
+        return chat;
+    }
+
+    async revokeShareLink(shareToken: string, userId: string): Promise<void> {
+        const share = await ChatShare.findOne({ shareToken, userId });
+        if (!share) {
+            throw ErrorBuilder.notFound('Share link not found');
+        }
+    
+        share.isRevoked = true;
+        await share.save();
+    }
+
+    private convertChatsToCSV(chats: any[]): string {
+        const headers = ['Chat ID', 'Title', 'Created At', 'Message Role', 'Message Content', 'Message Time'];
+        const rows: any[][] = [];
+
+        chats.forEach(chat => {
+            chat.messages.forEach((msg: any) => {
+                rows.push([
+                    chat._id,
+                    chat.title,
+                    chat.lastUpdated,
+                    msg.role,
+                    msg.content,
+                    msg.timestamp
+                ]);
+            });
+        });
+
+        return [headers, ...rows]
+            .map(row => row.join(','))
+            .join('\n');
     }
     // private methods 
     private async generateChatTitle(message: string): Promise<string> {

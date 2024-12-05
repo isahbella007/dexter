@@ -7,14 +7,21 @@ import { hashPassword } from "../../utils/helpers/passwordUtils"
 import { v4 as uuidv4 } from 'uuid';
 import speakeasy from 'speakeasy';
 import { IUser } from "../../models/interfaces/UserInterface";
+import { MigrationService } from "../../utils/services/migrationService";
 
 export class AuthService{ 
-    async registerUser(userData: Partial<IUser>): Promise<IUser>{ 
+    async registerUser(userData: Partial<IUser>, ipAddress:string, visitorId?:string): Promise<IUser>{ 
         try{ 
             const {email, password} = userData
-            const existingUser = await User.findOne({email})
 
-            if(existingUser) throw ErrorBuilder.badRequest('Email already exists')
+            // Check for existing user
+            const existingUser = await User.findOne({ 
+                $or: [
+                    { email },
+                    { ipAddress }
+                ]
+            });
+            if(existingUser) throw ErrorBuilder.badRequest('User already exists')
 
             const {hash: passwordHash, salt} = await hashPassword(password as string)
             const verificationToken = uuidv4()
@@ -23,8 +30,13 @@ export class AuthService{
                 password: passwordHash, 
                 emailVerificationToken: verificationToken, 
                 emailVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+                ipAddress,
+                visitorId
             })
 
+            if(visitorId){ 
+                await MigrationService.migrateVisitorChats(newUser._id, visitorId, newUser?.ipAddress as string)
+            }
             await newUser.save()
             // send the user the verification email 
             await this.sendVerificationEmail(newUser.email, verificationToken)

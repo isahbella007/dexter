@@ -17,5 +17,7 @@ export interface IUser extends Document{
     passwordResetToken?: string;
     passwordResetExpires?: Date;
     subscription: ISubscription;
+    ipAddress?: string;
+    visitorId?: string;
     comparePassword(password:string): Promise<boolean>
 }

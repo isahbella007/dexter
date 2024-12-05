@@ -13,5 +13,6 @@ export interface IChat {
     title?: string;
     messages: IMessage[];
     lastUpdated: Date;
+    archivedAt: Date;
     isArchived: boolean;
 }

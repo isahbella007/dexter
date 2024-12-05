@@ -22,6 +22,10 @@ const chatSchema = new Schema<IChat>({
         type: Date, 
         default: () => dateUtils.getCurrentUTCDate() 
     },
+    archivedAt: { 
+        type: Date, 
+        default: () => dateUtils.getCurrentUTCDate() 
+    },
     isArchived: { 
         type: Boolean, 
         default: false 

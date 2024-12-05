@@ -13,6 +13,7 @@ import { GeneralRateLimiter } from './middleware/rateLimiter';
 import { ErrorHandler } from './middleware/errorHandler';
 import { createSubPlan } from './scripts/subscriptionPlan';
 import routes from './routes';
+import cookieParser from 'cookie-parser';
 
 const app = express();
 
@@ -23,13 +24,14 @@ app.use(
     origin: config.allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['set-cookie']
   })
 );
 
 // In your Express setup, BEFORE routes
 // app.use(express.raw({type: 'application/json'}));
-
+app.use(cookieParser())
 // Content Type
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

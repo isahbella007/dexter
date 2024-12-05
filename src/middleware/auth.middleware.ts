@@ -31,9 +31,9 @@ export const authenticate = async (
         throw ErrorBuilder.unauthorized('User not found');
       }
   
-      if (user.isEmailVerified === false) {
+      if (!user.isEmailVerified) {
         throw ErrorBuilder.forbidden(
-          'Email not verified. Please verify your email to access this resource.'
+          'Please verify your email to continue using Dexter API'
         );
       }
   

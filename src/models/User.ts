@@ -7,6 +7,8 @@ const userSchema = new Schema<IUser>(
     { 
         stripeCustomerId: { type: String },
         email: {type: String, required: true, unique:true}, 
+        ipAddress: String,
+        visitorId: String,
         password: {type:String, required: true},
         mfa: {
             enabled: {type: Boolean, default: false  }, 
@@ -21,6 +23,17 @@ const userSchema = new Schema<IUser>(
         subscription: { type: subscriptionSchema, default: () => ({}) },
     }
 )
+
+// Prevent multiple accounts from same IP
+userSchema.pre('save', async function(next) {
+    if (this.isNew && this.ipAddress) {
+        const existingUser = await User.findOne({ ipAddress: this.ipAddress });
+        if (existingUser) {
+            throw new Error('An account already exists from this IP address');
+        }
+    }
+    next();
+});
 
 userSchema.methods.toJSON = function() {
     const userObject = this.toObject();

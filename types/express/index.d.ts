@@ -7,6 +7,7 @@ declare global {
             visitor?: {
                 id: string;
                 isVisitor: boolean;
+                ip: string;
             }
         }
     }
