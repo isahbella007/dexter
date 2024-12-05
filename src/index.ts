@@ -6,8 +6,9 @@ import app from './app';
 const startServer = async () => {
   try {
     console.log('we called the port')
-    const server = app.listen(config.port, () => {
-      logger.info(`Server running on port http://localhost:${config.port}`);
+    const port = config.port || 3000;
+    const server = app.listen(port, () => {
+      logger.info(`Server running on port http://localhost:${port}`);
     });
     handleSignals(server);
   } catch (error) {
