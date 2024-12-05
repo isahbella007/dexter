@@ -26,7 +26,8 @@ const configSchema = Joi.object({
     .valid('error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly')
     .default('info'),
     STRIPE_SECRET_KEY: Joi.string().required(), 
-    STRIPE_WEBHOOK_KEY: Joi.string().required()
+    STRIPE_WEBHOOK_KEY: Joi.string().required(),
+    OPENAI_API_KEY: Joi.string().required()
 }).unknown();
 
 // Validate and extract the config
@@ -52,7 +53,8 @@ export const config = {
   logLevel: envVars.LOG_LEVEL,
   apikeys: { 
     stripe: envVars.STRIPE_SECRET_KEY,
-    stripeEndpoint: envVars.STRIPE_WEBHOOK_KEY
+    stripeEndpoint: envVars.STRIPE_WEBHOOK_KEY, 
+    openAI: envVars.OPENAI_API_KEY
   }
 } as const;
 

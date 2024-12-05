@@ -11,6 +11,7 @@ export enum SubscriptionStatus {
 export enum SubscriptionType {
   FREE = 'free',
   PRO = 'pro',
+  VISITOR = 'visitor',
 }
 
 export enum BillingCycle {
