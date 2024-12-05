@@ -1,5 +1,5 @@
 import { BillingCycle, SubscriptionType } from "../models/Subscription";
-import { ISubscriptionPlan, SubscriptionPlan } from "../models/SubscriptionPlan";
+import { SubscriptionPlan } from "../models/SubscriptionPlan";
 
 // this is to create a subscription plan typically when the project runs fort he first time 
 export const createSubPlan = async () => { 

@@ -2,7 +2,6 @@ import mongoose, { Schema, Document } from 'mongoose';
 import { SubscriptionType, BillingCycle } from './Subscription';
 import { ISubscriptionPlan } from './interfaces/SubscriptionInterface';
 
-
 const SubscriptionPlanSchema = new Schema(
   {
     name: { type: String, required: true },
