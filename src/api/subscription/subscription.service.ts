@@ -2,8 +2,9 @@ import { config } from "../../config";
 import { SubscriptionPlan } from "../../models/SubscriptionPlan";
 import { ErrorBuilder } from "../../utils/errors/ErrorBuilder";
 import { handleError } from "../../utils/helpers/general";
-import { IUser, User } from "../../models/User";
+import { User } from "../../models/User";
 import { BillingCycle, SubscriptionStatus, SubscriptionType } from "../../models/Subscription";
+import { IUser } from "../../models/interfaces/UserInterface";
 
 const stripe = require('stripe')(config.apikeys.stripe);
 

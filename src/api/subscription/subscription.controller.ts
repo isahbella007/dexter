@@ -5,7 +5,8 @@ import { ResponseFormatter } from "../../utils/errors/ResponseFormatter";
 import { asyncHandler } from "../../utils/helpers/asyncHandler";
 import express, {Request, Response} from 'express'
 import { subscriptionService } from "./subscription.service";
-import { IUser } from "../../models/User";
+import { IUser } from "../../models/interfaces/UserInterface";
+
 
 const stripe = require('stripe')(config.apikeys.stripe)
 

@@ -1,10 +1,10 @@
 // src/utils/jwt.ts
 import jwt from 'jsonwebtoken';
 import { config } from '../../config';
-import { IUser } from '../../models/User';
 import { handleError } from './general';
 import { ErrorBuilder } from '../errors/ErrorBuilder';
 import dayjs from 'dayjs';
+import { IUser } from '../../models/interfaces/UserInterface';
 interface IJwtPayload {
   id: string; //this is the user id 
   exp: number;
