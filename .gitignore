@@ -10,7 +10,6 @@ ignore.txt
 .env.test
 .env.staging
 docs
-src/api/subscription
 # src/models/interfaces/BlogPostInterfaces.ts
 # src/models/Analytics.ts
 # src/models/BlogPost.ts
