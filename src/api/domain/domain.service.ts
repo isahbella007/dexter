@@ -3,10 +3,16 @@ import { BlogPost } from "../../models/BlogPost";
 import { Domain, IDomain } from "../../models/Domain";
 import { ErrorBuilder } from "../../utils/errors/ErrorBuilder";
 import { handleError } from "../../utils/helpers/general";
+import { subscriptionFeatureService } from "../../utils/subscription/subscriptionService";
 
 export class DomainService{ 
     async createDomain(userId:string, domainData: Partial<IDomain>){ 
         try{ 
+            // check if they can add a domain 
+            const canCreate = await subscriptionFeatureService.canAddDomain(userId)
+            if(!canCreate.createDomain){ 
+                throw ErrorBuilder.forbidden(canCreate.message)
+            }
             // create domain 
             const domain = new Domain({ 
                 ...domainData, 
@@ -36,8 +42,7 @@ export class DomainService{
     }
     async getDomain(domainId: string, userId: string): Promise<IDomain> {
         try {
-            const domain = await Domain.findOne({ _id: domainId, userId })
-                .populate('platformConnections');
+            const domain = await Domain.findOne({_id: domainId, userId});
             
             if (!domain) {
                 throw ErrorBuilder.notFound('Domain not found');
@@ -48,5 +53,7 @@ export class DomainService{
             throw handleError(error, 'getDomain');
         }
     }
+    // delete domain 
+    // update domain 
 }
 export const domainService = new DomainService();

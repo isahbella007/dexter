@@ -5,11 +5,12 @@ export interface IBlogPost {
     _id: string;
     domainId: mongoose.Schema.Types.ObjectId | string;
     userId: mongoose.Schema.Types.ObjectId | string;
-    mainKeyword: string;
+    mainKeyword: string[] | string;
     title: string;
     keywords: string[];
+    estimatedMonthlyTraffic: number;
     content: string;
-    status: 'draft' | 'ready' | 'published' | 'archived';
+    status?: 'draft' | 'ready' | 'published' | 'archived';
     seoScore: number;
     metaTitle: string;
     metaDescription: string;
@@ -18,21 +19,29 @@ export interface IBlogPost {
     structure: IStructureSettings;
     performance: IPerformanceMetrics;
     platformPublications: IPlatformPublication[];
+    isTemporary: boolean;
+    singleFormTemporary: boolean; //this holds the temp status of the form when doing single post generation 
+    singleFormExpiresAt?:Date;
+    // expired AT is for free users who want to do the single post generation. we leave their post so that when they upgrade within 7 days, they still see it
+    expiresAt?: Date;
+    generationType: 'single' | 'bulk' | 'demo';
     createdAt: Date;
     updatedAt: Date;
 }
 
 const blogPostSchema = new Schema<IBlogPost>({
-    domainId: { type: Schema.Types.ObjectId, ref: 'Domain', required: true },
+    domainId: { type: Schema.Types.ObjectId, ref: 'Domain', required: false },
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    mainKeyword: { type: String, required: true },
+    mainKeyword: { type: [String], required: true },
     title: { type: String, required: true, maxlength: 100 },
     keywords: [{ type: String }],
+    estimatedMonthlyTraffic: { type: Number, default: 0 },
     content: { type: String },
     status: { 
         type: String, 
         enum: ['draft', 'ready', 'published', 'archived'],
-        default: 'draft' 
+        default: 'draft', 
+        required: false
     },
     seoScore: { type: Number, default: 0 },
     metaTitle: { type: String },
@@ -92,7 +101,54 @@ const blogPostSchema = new Schema<IBlogPost>({
         publishedUrl: { type: String },
         publishedAt: { type: Date },
         error: { type: String }
-    }]
+    }], 
+    // Add new fields for subscription features
+    isTemporary: { 
+        type: Boolean, 
+        default: false 
+    },
+    singleFormTemporary: { 
+        type: Boolean, 
+        default: true 
+    },
+    singleFormExpiresAt:{
+        type: Date, 
+    },
+    expiresAt: { 
+        type: Date,
+        // Only set for temporary content
+        default: function(this: IBlogPost) {
+            if (this.isTemporary) {
+                const date = new Date();
+                date.setDate(date.getDate() + 7); // 7 days from creation
+                return date;
+            }
+            return undefined;
+        }
+    },
+    generationType: {
+        type: String,
+        enum: ['single', 'bulk', 'demo'],
+        required: true
+    }
 }, { timestamps: true });
+
+// // TTL index for temporary content
+// blogPostSchema.index(
+//     { expiresAt: 1 }, 
+//     { 
+//         expireAfterSeconds: 0, // 7 days
+//         partialFilterExpression: { isTemporary: true }
+//     }
+// );
+
+blogPostSchema.index(
+    {singleFormExpiresAt: 1}, 
+    
+    { 
+        expireAfterSeconds: 180, 
+        partialFilterExpression: { singleFormTemporary: true }
+    }
+)
 
 export const BlogPost = model<IBlogPost>('BlogPost', blogPostSchema);

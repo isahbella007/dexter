@@ -26,7 +26,13 @@ export const authController = {
         const user = await authService.registerUser(value, ipAddress, visitorId);
         const responseData = { userId: user._id };
         if(visitorId){ 
-            res.clearCookie('visitorId')
+            // Clear the visitor cookie by setting it to expire immediately
+            res.cookie('visitorId', '', {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                expires: new Date(0),
+                sameSite: 'strict'
+            });
         }
         ResponseFormatter.success(
             res,

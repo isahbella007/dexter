@@ -20,7 +20,7 @@ export const authenticate = async (
     try {
       const authHeader = req.headers.authorization;
       if (!authHeader) {
-        throw ErrorBuilder.unauthorized('No token provided');
+        throw ErrorBuilder.unauthorized('No token provided uuuu');
       }
   
       const token = authHeader.split(' ')[1]; // Bearer <token>

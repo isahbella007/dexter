@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import speakeasy from 'speakeasy';
 import { IUser } from "../../models/interfaces/UserInterface";
 import { MigrationService } from "../../utils/services/migrationService";
+import { emailService } from "../../utils/services/emailService";
 
 export class AuthService{ 
     async registerUser(userData: Partial<IUser>, ipAddress:string, visitorId?:string): Promise<IUser>{ 
@@ -18,7 +19,8 @@ export class AuthService{
             const existingUser = await User.findOne({ 
                 $or: [
                     { email },
-                    { ipAddress }
+                    // { ipAddress }
+                    {visitorId}
                 ]
             });
             if(existingUser) throw ErrorBuilder.badRequest('User already exists')
@@ -39,7 +41,7 @@ export class AuthService{
             }
             await newUser.save()
             // send the user the verification email 
-            await this.sendVerificationEmail(newUser.email, verificationToken)
+            // await this.sendVerificationEmail(newUser.email, verificationToken)
             return newUser
         }catch(error){ 
             console.log('error', error)
@@ -279,10 +281,12 @@ export class AuthService{
 
     private async sendPasswordResetEmail(email:string, token:string): Promise<void>{ 
         // call the emailService you set up here
+        await emailService.sendPasswordResetEmail(email, token);
     }
 
     private async sendVerificationEmail(email:string, token: string): Promise<void>{ 
         // call the emailService that will handle sending email verification
+        await emailService.sendVerificationEmail(email, token);
     }
 }
 

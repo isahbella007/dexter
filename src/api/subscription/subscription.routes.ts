@@ -4,8 +4,11 @@ import { authenticate } from "../../middleware/auth.middleware"
 
 const subscriptionRoutes = express()
 
+// get the plan to show the user 
+subscriptionRoutes.get('/plan', SubscriptionController.plans)
 // check the one the user wants to upgrade to 
-subscriptionRoutes.get('/upgrade', SubscriptionController.upgrade)
+subscriptionRoutes.post('/upgrade', SubscriptionController.upgrade)
+subscriptionRoutes.post('/trial-upgrade', SubscriptionController.upgradeTrial)
 subscriptionRoutes.get('/success', SubscriptionController.success)
 subscriptionRoutes.get('/cancel', SubscriptionController.cancel)
 
@@ -16,5 +19,5 @@ subscriptionRoutes.get('/invoice', SubscriptionController.billingDetails)
 subscriptionRoutes.post('/cancel-subscription', SubscriptionController.cancelSubscription)
 
 // webhooks
-subscriptionRoutes.post('/webhook', SubscriptionController.webhooks)
+// subscriptionRoutes.post('/webhook', SubscriptionController.webhooks)
 export default subscriptionRoutes

@@ -17,20 +17,22 @@ export const chatAuth = async (req: Request, res: Response, next: NextFunction) 
 
         // If no auth header, treat as visitor
         // Check for existing visitor ID in cookies
-        console.log('Runs to here')
+
         let visitorId = req.cookies.visitorId;
-        console.log('Stops here')
+        console.log(' the visitor id in the chat middleware =>', visitorId)
+
         const clientIp = getClientIp(req);
         console.log('The client IP is', clientIp)
+        // check if the IP already has a registered user 
+        const existingUser = await User.findOne({ ipAddress: clientIp });
+        if(existingUser){ 
+            throw ErrorBuilder.forbidden('An account already exists with this IP address. Please login to continue.')
+        }
         
-        if (!visitorId) {
-            // check if the IP already has a registered user 
-            const existingUser = await User.findOne({ ipAddress: clientIp });
-            if(existingUser){ 
-                throw ErrorBuilder.forbidden('An account already exists with this IP address. Please login to continue.')
-            }
+        if (visitorId == undefined) {
             // Generate new visitor ID
             visitorId = uuidv4();
+            console.log('the new visitor id is =>', visitorId)
             
             // Set cookie with appropriate options
             res.cookie('visitorId', visitorId, {

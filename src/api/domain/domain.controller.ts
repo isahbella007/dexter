@@ -10,6 +10,7 @@ export const domainController = {
     createDomain: asyncHandler(async(req:Request, res:Response) => {
         const {value, error} = createDomainSchema.validate(req.body) 
         if(error) throw ErrorBuilder.badRequest(error.details[0].message)
+    
         const domain = await domainService.createDomain((req.user as IUser)._id, value)
         ResponseFormatter.success(res, domain, 'Domain created successfully')
     }), 
@@ -17,5 +18,10 @@ export const domainController = {
     getAllDomain: asyncHandler(async(req:Request, res:Response) => { 
         const result = await domainService.getAllDomain((req.user as IUser)._id)
         ResponseFormatter.success(res, result, 'All domains')
+    }), 
+    
+    getDomain: asyncHandler(async(req:Request, res:Response) => { 
+        const result = await domainService.getDomain(req.query.domainId as string, (req.user as IUser)._id)
+        ResponseFormatter.success(res, result, 'Domain details')
     })
 }

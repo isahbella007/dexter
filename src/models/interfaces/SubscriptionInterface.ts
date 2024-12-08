@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { BillingCycle, SubscriptionStatus, SubscriptionType } from "../Subscription";
 
 export interface ISubscription {
+    stripeSubscriptionId?: string;
     type: SubscriptionType;
     billingCycle: BillingCycle;
     price: number;
@@ -12,12 +13,6 @@ export interface ISubscription {
     lastBillingDate?: Date;
     nextBillingDate?: Date;
     stripePlanId?: string;
-    paymentHistory: {
-      paymentId: string;
-      amount: number;
-      status: string;
-      date: Date;
-    }[];
     statusHistory: {
       status: SubscriptionStatus;
       date: Date;

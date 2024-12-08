@@ -3,7 +3,7 @@ import { SubscriptionPlan } from "../../models/SubscriptionPlan";
 import { ErrorBuilder } from "../../utils/errors/ErrorBuilder";
 import { ResponseFormatter } from "../../utils/errors/ResponseFormatter";
 import { asyncHandler } from "../../utils/helpers/asyncHandler";
-import express, {Request, Response} from 'express'
+import {Request, Response} from 'express'
 import { subscriptionService } from "./subscription.service";
 import { IUser } from "../../models/interfaces/UserInterface";
 
@@ -11,6 +11,19 @@ import { IUser } from "../../models/interfaces/UserInterface";
 const stripe = require('stripe')(config.apikeys.stripe)
 
 export const SubscriptionController = { 
+    plans: asyncHandler(async (req:Request, res:Response) => { 
+        const plans = await subscriptionService.getAvailablePlans()
+        ResponseFormatter.success(res, plans, 'Available plans fetched');
+    }),
+
+    upgradeTrial: asyncHandler(async(req:Request, res: Response) => { 
+        const planId = req.query.planId
+        const user = req.user as IUser
+        const session = await subscriptionService.startTrialSubscription(user._id, planId as string)
+       
+        ResponseFormatter.success(res, { url: session?.url }, 'Checkout session created');
+    }), 
+
     upgrade: asyncHandler(async (req:Request, res:Response) => { 
         const planId = req.query.planId
         const user = req.user as IUser
@@ -23,7 +36,7 @@ export const SubscriptionController = {
         const session = await subscriptionService.handleSuccessfulCheckout(
             req.query.session_id as string
         );
-        console.log('session =>', JSON.stringify(session))
+        // console.log('session =>', JSON.stringify(session))
         // Extract relevant information for the frontend
         const subscriptionDetails = {
             nextBillingDate: new Date(session.subscription.current_period_end * 1000),
@@ -54,13 +67,14 @@ export const SubscriptionController = {
             throw ErrorBuilder.badRequest('No billing information found')
         }
         const result = await subscriptionService.cancelSubscription(user._id)
-        ResponseFormatter.success(res, result, 'Portal session created');
+        ResponseFormatter.success(res, result, 'Subscription cancelled successfully');
     }),
 
     // to activate this, you need to run stripe listen --forward-to localhost:3000/subscription/webhook
     webhooks : asyncHandler(async (req:Request, res:Response) => {
         let event
         const endpointSecret = config.apikeys.stripeEndpoint
+        const user = req.user as IUser
 
         // Get the signature sent by Stripe
         const signature = req.headers['stripe-signature'];
@@ -77,7 +91,7 @@ export const SubscriptionController = {
             return ErrorBuilder.conflict(err.message);
         }
         // handle multiple event types 
-        await subscriptionService.handleWebhookEvent(event);
+        await subscriptionService.handleWebhookEvent(event, user as IUser);
         ResponseFormatter.success(res, null, 'Webhook processed successfully');
     })
 }

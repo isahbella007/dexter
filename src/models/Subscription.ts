@@ -4,6 +4,7 @@ import { ISubscription } from './interfaces/SubscriptionInterface';
 export enum SubscriptionStatus {
   ACTIVE = 'active',
   EXPIRED = 'expired',
+  TRIAL = 'trial',
   CANCELLING = 'cancelling',
   CANCELLED = 'cancelled',
 }
@@ -60,15 +61,8 @@ export const subscriptionSchema = new Schema<ISubscription>(
     nextBillingDate: {
       type: Date,
     },
+    stripeSubscriptionId: {type: String},
     stripePlanId: {type: String},
-    paymentHistory: [
-      {
-        paymentId: { type: String, required: true },
-        amount: { type: Number, required: true },
-        status: { type: String, required: true },
-        date: { type: Date, default: Date.now },
-      },
-    ],
     statusHistory: [
       {
         status: {

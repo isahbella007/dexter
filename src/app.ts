@@ -14,6 +14,8 @@ import { ErrorHandler } from './middleware/errorHandler';
 import { createSubPlan } from './scripts/subscriptionPlan';
 import routes from './routes';
 import cookieParser from 'cookie-parser';
+import subscriptionRoutes from './api/subscription/subscription.routes';
+import { SubscriptionController } from './api/subscription/subscription.controller';
 
 const app = express();
 
@@ -33,6 +35,8 @@ app.use(
 // app.use(express.raw({type: 'application/json'}));
 app.use(cookieParser())
 // Content Type
+
+app.post('/subscription/webhook/?umm-stripe-webhook=true', express.raw({type: 'application/json'}), SubscriptionController.webhooks);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

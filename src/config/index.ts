@@ -44,6 +44,7 @@ export const config = {
   port: envVars.PORT,
   mongodbUri: envVars.MONGODB_URI,
   appUrl:envVars.APP_URL,
+  baseUrl: envVars.BASE_URL,
   jwt: {
     secret: envVars.JWT_SECRET,
     expiresIn: envVars.JWT_EXPIRES_IN,
@@ -55,6 +56,11 @@ export const config = {
     stripe: envVars.STRIPE_SECRET_KEY,
     stripeEndpoint: envVars.STRIPE_WEBHOOK_KEY, 
     openAI: envVars.OPENAI_API_KEY
+  }, 
+  email: { 
+    user: envVars.EMAIL_APP,
+    password: envVars.EMAIL_PASSWORD, 
+    from: envVars.EMAIL_FROM
   }
 } as const;
 

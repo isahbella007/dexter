@@ -64,7 +64,7 @@ export class ChatService{
         chat.lastUpdated = dateUtils.getCurrentUTCDate()
         await chat.save()
 
-        await subscriptionFeatureService.incrementUsage(userId, visitorId)
+        const remainingUsage = await subscriptionFeatureService.incrementUsage(userId, visitorId)
         // Return only the latest message for immediate display
         return { 
             chatId: chat._id,
@@ -73,6 +73,10 @@ export class ChatService{
                 role: 'assistant',
                 content: aiResponse,
                 timestamp: chat.messages[chat.messages.length - 1].timestamp
+            }, 
+            usage: {
+                dailyUsage: remainingUsage,
+                dailyLimit: canUseDexterAI.dailyLimit
             }
         };
     }

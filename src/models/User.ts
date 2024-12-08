@@ -2,6 +2,7 @@ import { model, Schema } from "mongoose";
 import bcrypt from 'bcrypt';
 import { subscriptionSchema } from "./Subscription";
 import { IUser } from "./interfaces/UserInterface";
+import { userSettingsSchema } from "./UserSettings";
 
 const userSchema = new Schema<IUser>(
     { 
@@ -15,25 +16,28 @@ const userSchema = new Schema<IUser>(
             secret: {type: String, required: false}, 
             backupCodes: {type: [String], required: false}
         },
-        isEmailVerified: {type: Boolean, required: false, default: false},
+        isEmailVerified: {type: Boolean, required: false, default: true}, //!!TODO: set this back to false when you have worked on the email sending 
         emailVerificationToken: { type: String },
         emailVerificationExpires: { type: Date},
         passwordResetToken: { type: String},
         passwordResetExpires: { type: Date},
+        singleBlogPostCount: Number,
         subscription: { type: subscriptionSchema, default: () => ({}) },
+        settings: { type: userSettingsSchema, default: () => ({}) },
     }
 )
 
 // Prevent multiple accounts from same IP
-userSchema.pre('save', async function(next) {
-    if (this.isNew && this.ipAddress) {
-        const existingUser = await User.findOne({ ipAddress: this.ipAddress });
-        if (existingUser) {
-            throw new Error('An account already exists from this IP address');
-        }
-    }
-    next();
-});
+//!!TODO: test and recall why you have this
+// userSchema.pre('save', async function(next) {
+//     if (this.isNew && this.ipAddress) {
+//         const existingUser = await User.findOne({ ipAddress: this.ipAddress });
+//         if (existingUser) {
+//             throw new Error('An account already exists from this IP address');
+//         }
+//     }
+//     next();
+// });
 
 userSchema.methods.toJSON = function() {
     const userObject = this.toObject();

@@ -14,6 +14,7 @@ export const chatController = {
     
         let user:IUser | null = null;
         let visitorId:string | undefined = undefined;
+
         if(req.user as IUser){ 
             user = req.user as IUser;
         }
