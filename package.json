@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "nodemon src/index.ts",
     "start:prod": "node dist/index.js",
+    "build:prod": "npm install && tsc",
     "build": "tsc",
     "test": "jest",
     "test:watch": "jest --watch"
