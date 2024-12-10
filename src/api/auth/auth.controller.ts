@@ -42,8 +42,8 @@ export const authController = {
     }), 
 
     setupMFA: asyncHandler(async (req: Request, res: Response) => {
-        const { error, value } = setupMFASchema.validate(req.query);
-        if (error) throw ErrorBuilder.badRequest(error.details[0].message);
+        // const { error, value } = setupMFASchema.validate(req.query);
+        // if (error) throw ErrorBuilder.badRequest(error.details[0].message);
 
         const result = await authService.setUpMFA((req.user as IUser)._id);
         ResponseFormatter.success(res, result, 'MFA setup initialized');

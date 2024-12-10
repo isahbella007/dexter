@@ -1,10 +1,12 @@
-import { BlogPost, IBlogPost } from "../../models/BlogPost";
+import { BlogPost } from "../../models/BlogPost";
 import { Domain } from "../../models/Domain";
+import { GenerationBatch } from "../../models/GenerationBatch";
+import { IBlogPost, IGenerationBatchArticle, IKeywordPosition, IMetadata, IStructureSettings } from "../../models/interfaces/BlogPostInterfaces";
 import { User } from "../../models/User";
 import { ErrorBuilder } from "../../utils/errors/ErrorBuilder";
 import { openAIService } from "../../utils/services/openAIService";
 import { subscriptionFeatureService } from "../../utils/subscription/subscriptionService";
-
+import { v4 as uuidv4 } from 'uuid';
 interface IGenerateSingleBlogPostInput{ 
     data: Partial<IBlogPost>, 
     AIPrompt?: string;
@@ -127,6 +129,38 @@ export class BlogPostService {
         await blogPost.deleteOne({_id: blogPostId})
     }
 
+    async getBlogPost(userId: string, domainId?: string, batchId?:string){ 
+        // !!TODO: how about when they send batchId and domainId
+        let blogPost 
+        if(batchId ){ 
+            if(domainId){ 
+                blogPost = await BlogPost.find({ domainId, batchId, userId })
+            }
+            else{ 
+                blogPost = await BlogPost.find({ batchId, userId })
+            }
+            const batch = await GenerationBatch.findById(batchId)
+            if(!batch){ 
+                throw ErrorBuilder.notFound("Batch not found");
+            }
+            if(batch.status === 'processing'){ 
+                return{ 
+                    blogPost, 
+                    metrics: { 
+                        totalArticles: batch.totalArticles, 
+                        completedArticles: batch.completedArticles, 
+                        progress: (batch.completedArticles / batch.totalArticles) * 100
+                    }
+                }
+            }
+        } else if(domainId){ 
+            blogPost = await BlogPost.find({ domainId, userId })
+        } else { 
+            blogPost = await BlogPost.find({ userId })
+        }
+        return {blogPost}
+    }
+
     async generateTitle(userId: string, blogPostId: string, data: Partial<IBlogPost>){ 
         const blogPost = await BlogPost.findOne({ _id: blogPostId, userId })
         if(!blogPost){ 
@@ -185,16 +219,257 @@ export class BlogPostService {
         return titles;
     }
 
-    async generateBulkKeywords(userId: string, data: Partial<IBlogPost>){ 
-        // call the AI to generate the keywords from the main keyword passed. It is to be an array of string and for each position, we get the keywords for it 
-        // so something like this 
-        const keywords = ['keyword1', 'keyword2', 'keyword3']
-        return keywords
+    async generateBulkKeywords(userId: string, data: Partial<IBlogPost>) {
+        if (!data.mainKeyword || !Array.isArray(data.mainKeyword)) {
+            throw ErrorBuilder.badRequest("Main keywords array is required");
+        }
+    
+        if (!data.title || !Array.isArray(data.title)) {
+            throw ErrorBuilder.badRequest("Titles array is required");
+        }
+    
+        if (data.mainKeyword.length !== data.title.length) {
+            throw ErrorBuilder.badRequest("Number of main keywords must match number of titles");
+        }
+    
+        // Get user's AI model and keyword limit based on subscription
+        const aiModel = await subscriptionFeatureService.getAIModel(userId);
+        const keywordLimit = await subscriptionFeatureService.getMaxKeywords(userId);
+    
+        // Generate keywords for each main keyword + title pair
+        const bulkKeywords = await Promise.all(
+            data.mainKeyword.map(async (keyword, index) => {
+                try {
+                    const title = data.title?.[index];
+                    const keywords = await openAIService.generateRelatedKeywords(
+                        `${keyword} ${title}`, // Combine keyword and title for better context
+                        keywordLimit,
+                        aiModel
+                    );
+                    
+                    return {
+                        mainKeyword: keyword,
+                        title: title,
+                        relatedKeywords: keywords
+                    };
+                } catch (error) {
+                    console.error(`Failed to generate keywords for: ${keyword}`, error);
+                    return {
+                        mainKeyword: keyword,
+                        title: data.title?.[index],
+                        relatedKeywords: []
+                    };
+                }
+            })
+        );
+    
+        return bulkKeywords;
+    }
+
+    async initiateBulkGeneration(userId: string, articles: IGenerationBatchArticle[], domainId?: string) {
+        const batch = new GenerationBatch({
+            userId,
+            totalArticles: articles.length,
+            articles: articles.map(article => ({
+                ...article,
+                status: 'pending'
+            })),
+            domainId: domainId || null
+        });
+
+        await batch.save();
+        this.processBatch(batch._id as unknown as string);
+        return { batchId: batch._id as unknown as string, status: 'processing' };
+    }
+
+    async processBatch(batchId: string) {
+        const batch = await GenerationBatch.findById(batchId)
+        if (!batch) throw new Error('Batch not found');
+
+        // get the user's ai model 
+        const aiModel = await subscriptionFeatureService.getAIModel(batch.userId as unknown as string)
+
+        // Process articles sequentially
+        for (let index = 0; index < batch.articles.length; index++) {
+            try {
+                console.log(`Processing article ${index + 1}/${batch.articles.length}`);
+
+                
+                const content = await openAIService.generateBlogContent(batch.articles[index], aiModel);
+                
+                await this.updateArticleStatus(batchId, index, 'ready', content);
+
+                batch.completedArticles += 1
+                await batch.save()
+            } catch (error) {
+                console.error(`Error processing article ${index + 1}:`, error);
+                await this.updateArticleStatus(batchId, index, 'failed');
+            }
+        }
+        // await Promise.all(batch.articles.map(async (article, index) => {
+        //     try {
+        //         const content = await openAIService.generateBlogContent(article, aiModel);
+        //         await this.updateArticleStatus(batchId, index, 'ready', content);
+        //     } catch (error) {
+        //         await this.updateArticleStatus(batchId, index, 'failed');
+        //         console.error(`Error generating content for article ${index}:`, error);
+        //     }
+        // }))
+
+        // update the batch status to completed 
+        batch.status = 'completed'
+        await batch.save()
+    }
+
+    async createBlogPost(article: IGenerationBatchArticle, content: string, domainId: string, userId: string, batchId: string, isTemporary: boolean) {
+        
+        const metadata = this.calculateMetaData(content, {mainKeyword: article.mainKeyword, title: article.title})
+
+
+        const blogPost = new BlogPost({
+            userId,
+            domainId: domainId || null,
+            batchId,
+            mainKeyword: article.mainKeyword,
+            title: article.title,
+            keywords: article.keywords,
+            content,
+            generationType: 'bulk',
+            status: 'ready', 
+            singleFormTemporary: false, 
+            isTemporary: isTemporary, 
+            metadata, 
+            structure: this.detectStructureFeatures(content), 
+            seoAnalysis: this.analyzeSEO(content, article.mainKeyword)
+        });
+        await blogPost.save();
+    }
+
+    async updateArticleStatus(batchId: string, index: number, status: string, content?: string) {
+        const batch = await GenerationBatch.findById(batchId)
+        if(!batch){ 
+            throw ErrorBuilder.notFound("Batch not found");
+        }
+        if (content) {
+             // Use findOneAndUpdate to atomically increment completedArticles for promise
+            // await GenerationBatch.findByIdAndUpdate(
+            //     batchId,
+            //     {
+            //         $set: { [`articles.${index}.status`]: status },
+            //         $inc: { completedArticles: 1 }
+            //     },
+            //     { new: true }
+            // );
+           
+            
+            // !!TODO:: come to this and check the people who can make use of the bulk creation
+            const canCreate = await subscriptionFeatureService.canCreateBulkPosts(batch.userId as unknown as string)
+            if(!canCreate.canCreate){ 
+                throw ErrorBuilder.forbidden(canCreate.message);
+            }
+
+            const isTemporary = canCreate.isTemporary
+            await this.createBlogPost(batch.articles[index], content, batch.domainId as unknown as string, batch.userId as unknown as string, batchId, isTemporary!);
+        }
+        // still part of promise
+        else{ 
+            await GenerationBatch.findByIdAndUpdate(
+                batchId,
+                { $set: { [`articles.${index}.status`]: status } }
+            );
+        }
     }
 
     private async getTrafficEstimate(keyword: string): Promise<number> {
         // TODO: Integrate with SEO API to get real traffic estimates
         return Math.floor(Math.random() * 10000);
+    }
+
+    private calculateMetaData(content: string, options: {
+        mainKeyword: string;
+        title: string;
+    }): IMetadata {
+        // Remove markdown syntax for accurate word count
+        const plainText = this.stripMarkdown(content);
+        
+        const wordCount = plainText.split(/\s+/).filter(word => word.length > 0).length;
+        const characterCount = plainText.length;
+        const readingTime = Math.ceil(wordCount / 200);
+
+        return {
+            wordCount,
+            characterCount,
+            mainKeyword: options.mainKeyword,
+            metaTitle: options.title,
+            metaDescription: this.generateMetaDescription(plainText), // Use plain text for meta description
+            readingTime
+        };
+    }
+
+    private stripMarkdown(content: string): string {
+        return content
+            .replace(/#{1,6}\s/g, '') // Remove headers
+            .replace(/(\*\*|__)(.*?)\1/g, '$2') // Remove bold
+            .replace(/(\*|_)(.*?)\1/g, '$2') // Remove italic
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1') // Remove links
+            .replace(/`{1,3}[^`]*`{1,3}/g, '') // Remove code blocks
+            .replace(/^\s*[-+*]\s/gm, '') // Remove list markers
+            .replace(/^\s*\d+\.\s/gm, '') // Remove numbered lists
+            .replace(/\n{2,}/g, '\n') // Normalize line breaks
+            .trim();
+    }
+    private detectStructureFeatures(content: string): IStructureSettings {
+        return {
+            includeHook: content.includes('Introduction') || content.startsWith('#'),
+            includeConclusion: /##?\s*Conclusion/i.test(content),
+            includeTables: content.includes('|'),
+            includeH3: content.includes('###'),
+            includeLists: /[-*+]\s/.test(content),
+            includeItalics: /\*[^*]+\*/.test(content),
+            includeQuotes: content.includes('>'),
+            includeKeyTakeaway: /##?\s*Key Takeaway/i.test(content),
+            includeFAQ: /##?\s*FAQ/i.test(content),
+            includeBold: /\*\*[^*]+\*\*/.test(content),
+            includeBulletpoints: /[-*+]\s/.test(content)
+        };
+    }
+
+    private analyzeSEO(content: string, mainKeyword: string) {
+        const lines = content.split('\n');
+        const keywordPositions: IKeywordPosition[] = [];
+        const keywordRegex = new RegExp(mainKeyword, 'gi');
+    
+        lines.forEach((line, lineNumber) => {
+            // Determine the type of line
+            let type: IKeywordPosition['type'] = 'content';
+            if (line.match(/^#{1,6}\s/)) {
+                const headerLevel = line.match(/^(#{1,6})\s/)?.[1].length;
+                type = `h${headerLevel}` as IKeywordPosition['type'];
+            }
+    
+            // Find all keyword matches in the line
+            let match;
+            while ((match = keywordRegex.exec(line)) !== null) {
+                keywordPositions.push({
+                    type,
+                    position: match.index,
+                    context: line.trim(),
+                    lineNumber
+                });
+            }
+        });
+    
+        return {
+            mainKeywordDensity: (keywordPositions.length / content.length) * 100,
+            contentLength: content.length,
+            readabilityScore: 0,
+            keywordPositions
+        };
+    }
+
+    private generateMetaDescription(content: string): string {
+        // TODO: Implement meta description generation logic
+        return 'Meta description';
     }
 }
 

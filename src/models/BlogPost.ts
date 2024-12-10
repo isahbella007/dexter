@@ -1,37 +1,12 @@
 import mongoose, { Schema, model } from 'mongoose';
-import { IMediaSettings, IPerformanceMetrics, IPlatformPublication, IPostSettings, IStructureSettings } from './interfaces/BlogPostInterfaces';
+import { IBlogPost, IMediaSettings, IPerformanceMetrics, IPlatformPublication, IPostSettings, IStructureSettings } from './interfaces/BlogPostInterfaces';
 
-export interface IBlogPost {
-    _id: string;
-    domainId: mongoose.Schema.Types.ObjectId | string;
-    userId: mongoose.Schema.Types.ObjectId | string;
-    mainKeyword: string[] | string;
-    title: string;
-    keywords: string[];
-    estimatedMonthlyTraffic: number;
-    content: string;
-    status?: 'draft' | 'ready' | 'published' | 'archived';
-    seoScore: number;
-    metaTitle: string;
-    metaDescription: string;
-    settings: IPostSettings;
-    mediaSettings: IMediaSettings;
-    structure: IStructureSettings;
-    performance: IPerformanceMetrics;
-    platformPublications: IPlatformPublication[];
-    isTemporary: boolean;
-    singleFormTemporary: boolean; //this holds the temp status of the form when doing single post generation 
-    singleFormExpiresAt?:Date;
-    // expired AT is for free users who want to do the single post generation. we leave their post so that when they upgrade within 7 days, they still see it
-    expiresAt?: Date;
-    generationType: 'single' | 'bulk' | 'demo';
-    createdAt: Date;
-    updatedAt: Date;
-}
+
 
 const blogPostSchema = new Schema<IBlogPost>({
     domainId: { type: Schema.Types.ObjectId, ref: 'Domain', required: false },
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    batchId: { type: Schema.Types.ObjectId, ref: 'GenerationBatch', required: false },
     mainKeyword: { type: [String], required: true },
     title: { type: String, required: true, maxlength: 100 },
     keywords: [{ type: String }],
@@ -44,8 +19,28 @@ const blogPostSchema = new Schema<IBlogPost>({
         required: false
     },
     seoScore: { type: Number, default: 0 },
-    metaTitle: { type: String },
-    metaDescription: { type: String },
+    metadata:{
+        wordCount: {type: Number},
+        characterCount: {type: Number},
+        mainKeyword: {type: String},
+        AIPrompt: {type: String},
+        metaTitle: {type: String},
+        metaDescription: {type: String},
+        readingTime: {type: Number},
+    },
+    seoAnalysis:{
+        mainKeywordDensity: {type: Number},
+        contentLength: {type: Number},
+        readabilityScore: {type: Number},
+        mainKeywordPositions: {
+            metaTitle: {type: Boolean},
+            metaDescription: {type: Boolean},
+            h1Headers: {type: Number},
+            h2Headers: {type: Number},
+            h3Headers: {type: Number},
+            content: {type: [Number]},
+        },
+    },
     settings: {
         language: { type: String, default: 'en' },
         articleSize: { 

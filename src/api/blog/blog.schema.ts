@@ -26,3 +26,16 @@ export const generateBlogPost = Joi.object({
 export const generateBulkTitle = Joi.object({ 
     mainKeyword: Joi.array().items(Joi.string()).max(10).required()
 })
+
+export const generateBulkKeywords = Joi.object({ 
+    mainKeyword: Joi.array().items(Joi.string()).max(10).required(),
+    title: Joi.array().items(Joi.string()).max(10).required()
+})
+
+export const generateBulkArticles = Joi.object({ 
+    articles: Joi.array().items(Joi.object({
+        mainKeyword: Joi.string().required(),
+        title: Joi.string().required(), 
+        keywords: Joi.array().items(Joi.string()).max(10).required()
+    })).required()
+})

@@ -4,7 +4,7 @@ import { ErrorBuilder } from '../../utils/errors/ErrorBuilder';
 import { IUser } from '../../models/interfaces/UserInterface';
 import { ResponseFormatter } from '../../utils/errors/ResponseFormatter';
 import { asyncHandler } from '../../utils/helpers/asyncHandler';
-import { blogPostKeyWordsUpdate, generateBlogPost, generateBulkTitle, generateSingleTemplate } from './blog.schema';
+import { blogPostKeyWordsUpdate, generateBlogPost, generateBulkArticles, generateBulkKeywords, generateBulkTitle, generateSingleTemplate } from './blog.schema';
 
 export const blogPostController = {
     createTempSinglePost: asyncHandler(async(req:Request, res:Response) => { 
@@ -68,11 +68,32 @@ export const blogPostController = {
         ResponseFormatter.success(res, response, 'Main keywords generated');
     }), 
 
+    generateBulkKeywords: asyncHandler(async(req:Request, res:Response) => { 
+        const {value, error} = generateBulkKeywords.validate(req.body)
+        if(error) throw ErrorBuilder.badRequest(error.details[0].message)
+
+        const response = await blogPostService.generateBulkKeywords((req.user as IUser)._id, value)
+        ResponseFormatter.success(res, response, 'Bulk keywords generated');
+    }),
+
     generateBulkTitles: asyncHandler(async(req:Request, res:Response) => { 
         const {value, error} = generateBulkTitle.validate(req.body)
         if(error) throw ErrorBuilder.badRequest(error.details[0].message)
 
         const response = await blogPostService.generateBulkTitle((req.user as IUser)._id, value)
         ResponseFormatter.success(res, response, 'Bulk titles generated');
-    })
+    }), 
+
+    getBlogPost: asyncHandler(async(req:Request, res:Response) => { 
+        const response = await blogPostService.getBlogPost((req.user as IUser)._id, req.query.domainId as string, req.query.batchId as string)
+        ResponseFormatter.success(res, response, 'Blog post fetched');
+    }),
+
+    initiateBulkGeneration: asyncHandler(async(req:Request, res:Response) => { 
+        const {value, error} = generateBulkArticles.validate(req.body)
+        if(error) throw ErrorBuilder.badRequest(error.details[0].message)
+
+        const response = await blogPostService.initiateBulkGeneration((req.user as IUser)._id, value.articles)
+        ResponseFormatter.success(res, response, 'Bulk generation initiated');
+    }),
 }

@@ -12,4 +12,9 @@ blogPostRoutes.delete('/delete-blog-post', blogPostController.deleteBlogPost)
 
 blogPostRoutes.post('/generate-main-keywords', blogPostController.generateMainKeywords)
 blogPostRoutes.post('/generate-bulk-titles', blogPostController.generateBulkTitles)
+blogPostRoutes.post('/generate-bulk-keywords', blogPostController.generateBulkKeywords)
+
+blogPostRoutes.post('/bulk-generate', blogPostController.initiateBulkGeneration)
+
+blogPostRoutes.get('/', blogPostController.getBlogPost)
 export default blogPostRoutes; 

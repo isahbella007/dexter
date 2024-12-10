@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+
 export interface IMediaSettings {
     includeImages: boolean;
     imageCount: number;
@@ -46,3 +48,103 @@ export interface IPlatformPublication {
     publishedAt?: Date;
     error?: string;
 } 
+
+export interface IMetadata {
+    wordCount: number;
+    characterCount: number;
+    mainKeyword: string;
+    AIPrompt?: string;
+    metaTitle: string;
+    metaDescription: string;
+    readingTime: number;
+}
+
+// export interface ISEOAnalysis {
+//     mainKeywordDensity: number;
+//     mainKeywordPositions: {
+//         metaTitle: boolean;
+//         metaDescription: boolean;
+//         h1Headers: number;
+//         h2Headers: number;
+//         h3Headers: number;
+//         content: number[];
+//     };
+//     contentLength: number;
+//     readabilityScore: number;
+// }
+export interface ISEOAnalysis {
+    mainKeywordDensity: number;
+    contentLength: number;
+    readabilityScore: number;
+    keywordPositions: IKeywordPosition[];
+}
+
+export interface IKeywordPosition {
+    type: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'content';
+    position: number;
+    context: string; // The surrounding text or full line
+    lineNumber: number;
+}
+
+export interface IBlogPost {
+    _id: string;
+    domainId: mongoose.Schema.Types.ObjectId | string;
+    userId: mongoose.Schema.Types.ObjectId | string;
+    batchId: mongoose.Schema.Types.ObjectId | string;
+    mainKeyword: string[] | string;
+    title: string;
+    keywords: string[];
+    estimatedMonthlyTraffic: number;
+    content: string;           // Markdown content
+    contentHtml?: string;      // Rendered HTML (optional, can be generated on-the-fly)
+    metadata: IMetadata;
+    seoAnalysis: ISEOAnalysis;
+    featuredImage: {
+        url: string;
+        alt: string;
+        caption?: string;
+    };
+    version: number;           // For tracking content versions
+    lastEditedAt: Date;
+    editHistory: Array<{
+        timestamp: Date;
+        userId: string;
+        changes: string;       // Description of changes
+    }>;
+    status?: 'draft' | 'ready' | 'published' | 'archived';
+    seoScore: number;
+    metaTitle: string;
+    metaDescription: string;
+    settings: IPostSettings;
+    mediaSettings: IMediaSettings;
+    structure: IStructureSettings;
+    performance: IPerformanceMetrics;
+    platformPublications: IPlatformPublication[];
+    isTemporary: boolean;
+    singleFormTemporary: boolean; //this holds the temp status of the form when doing single post generation 
+    singleFormExpiresAt?:Date;
+    // expired AT is for free users who want to do the single post generation. we leave their post so that when they upgrade within 7 days, they still see it
+    expiresAt?: Date;
+    generationType: 'single' | 'bulk' | 'demo';
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+export interface IGenerationBatchArticle {
+    mainKeyword: string;
+    title: string;
+    keywords: string[];
+    status: 'pending' | 'generating' | 'ready' | 'failed';
+}
+
+export interface IGenerationBatch {
+    batchId: string;
+    userId: string | mongoose.Schema.Types.ObjectId;
+    domainId: string | mongoose.Schema.Types.ObjectId;
+    totalArticles: number;
+    completedArticles: number;
+    status: 'processing' | 'completed' | 'failed';
+    articles: IGenerationBatchArticle[];
+    startedAt: Date;
+    completedAt: Date;
+}

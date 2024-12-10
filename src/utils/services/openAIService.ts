@@ -1,4 +1,5 @@
 import { openai } from "../../config/openai";
+import { IGenerationBatchArticle } from "../../models/interfaces/BlogPostInterfaces";
 import { ErrorBuilder } from "../errors/ErrorBuilder";
 
 interface IKeywordGenerationResponse {
@@ -54,6 +55,30 @@ export class OpenAIService {
         // Clean up the response and ensure it's not too long
         const title = response.trim().replace(/["']/g, '');
         return title.length > 100 ? title.substring(0, 97) + '...' : title;
+    }
+
+    async generateBlogContent(article: IGenerationBatchArticle, model: string): Promise<string> {
+        const systemPrompt = `You are a professional blog writer. 
+        Format your response in Markdown with the following structure:
+        - Use ## for main headings
+        - Use ### for subheadings
+        - Include bullet points where appropriate
+        - Format important text in **bold**
+        - Use *italic* for emphasis
+        - Include a table if relevant
+        - End with an FAQ section if relevant`;
+
+        const response = await openai.chat.completions.create({
+            model,
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: `Write a blog post about ${article.mainKeyword}. Title: ${article.title}` }
+            ],
+            temperature: 0.7, 
+            max_tokens: 1200
+        });
+
+        return response.choices[0].message?.content || '';
     }
 }
 

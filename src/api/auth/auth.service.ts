@@ -16,14 +16,24 @@ export class AuthService{
             const {email, password} = userData
 
             // Check for existing user
-            const existingUser = await User.findOne({ 
-                $or: [
-                    { email },
-                    // { ipAddress }
-                    {visitorId}
-                ]
-            });
-            if(existingUser) throw ErrorBuilder.badRequest('User already exists')
+            let existingUser = null
+            // if there is a visitorId, check if the user exists with that visitorId
+            if(visitorId !== undefined && userData.email !== undefined){ 
+                existingUser = await User.findOne({ 
+                    $or: [
+                        { email },
+                        // { ipAddress }
+                        {visitorId}
+                    ]
+                });
+            } 
+
+            // if there is no visitorId, check if the user exists with the email
+            if(visitorId === undefined && email !== undefined){ 
+                existingUser = await User.findOne({ email });
+            }
+           
+            if(existingUser) throw ErrorBuilder.badRequest('User already exists aaa')
 
             const {hash: passwordHash, salt} = await hashPassword(password as string)
             const verificationToken = uuidv4()
