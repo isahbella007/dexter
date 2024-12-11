@@ -71,6 +71,7 @@ export class ChatService{
             chatTitle: chat.title,
             latestMessage: {
                 role: 'assistant',
+                message: message,
                 content: aiResponse,
                 timestamp: chat.messages[chat.messages.length - 1].timestamp
             }, 
