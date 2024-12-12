@@ -97,30 +97,6 @@ const blogPostSchema = new Schema<IBlogPost>({
         publishedAt: { type: Date },
         error: { type: String }
     }], 
-    // Add new fields for subscription features
-    isTemporary: { 
-        type: Boolean, 
-        default: false 
-    },
-    singleFormTemporary: { 
-        type: Boolean, 
-        default: true 
-    },
-    singleFormExpiresAt:{
-        type: Date, 
-    },
-    expiresAt: { 
-        type: Date,
-        // Only set for temporary content
-        default: function(this: IBlogPost) {
-            if (this.isTemporary) {
-                const date = new Date();
-                date.setDate(date.getDate() + 7); // 7 days from creation
-                return date;
-            }
-            return undefined;
-        }
-    },
     generationType: {
         type: String,
         enum: ['single', 'bulk', 'demo'],
@@ -128,22 +104,5 @@ const blogPostSchema = new Schema<IBlogPost>({
     }
 }, { timestamps: true });
 
-// // TTL index for temporary content
-// blogPostSchema.index(
-//     { expiresAt: 1 }, 
-//     { 
-//         expireAfterSeconds: 0, // 7 days
-//         partialFilterExpression: { isTemporary: true }
-//     }
-// );
-
-blogPostSchema.index(
-    {singleFormExpiresAt: 1}, 
-    
-    { 
-        expireAfterSeconds: 180, 
-        partialFilterExpression: { singleFormTemporary: true }
-    }
-)
 
 export const BlogPost = model<IBlogPost>('BlogPost', blogPostSchema);

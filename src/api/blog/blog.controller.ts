@@ -1,70 +1,46 @@
 import { Request, Response } from 'express';
-import { blogPostService } from './blog.service';
 import { ErrorBuilder } from '../../utils/errors/ErrorBuilder';
 import { IUser } from '../../models/interfaces/UserInterface';
 import { ResponseFormatter } from '../../utils/errors/ResponseFormatter';
 import { asyncHandler } from '../../utils/helpers/asyncHandler';
-import { blogPostKeyWordsUpdate, generateBlogPost, generateBulkArticles, generateBulkKeywords, generateBulkTitle, generateSingleTemplate } from './blog.schema';
+import { blogPostKeyWordsUpdate, generateBlogPost, generateBulkArticles, generateBulkKeywords, generateBulkTitle, generateSingleTemplate, updateBlogPost, updateBlogPostSection } from './blog.schema';
+import { singleBlogPostService } from './services/single.services';
+import { bulkBlogPostService } from './services/bulk.services';
+import { crudBlogPostService } from './services/crud.services';
 
 export const blogPostController = {
-    createTempSinglePost: asyncHandler(async(req:Request, res:Response) => { 
-        const {value, error} = generateSingleTemplate.validate(req.body)
-        if(error) throw ErrorBuilder.badRequest(error.details[0].message)
 
-        const response = await blogPostService.createTemporaryBlogPost((req.user as IUser)._id, value)
-        ResponseFormatter.success(res, response, 'Single blog post generated');
-    }), 
-
-    updateMainKeywords: asyncHandler(async(req:Request, res:Response) => { 
-        const {value, error} = blogPostKeyWordsUpdate.validate(req.body)
-        if(error) throw ErrorBuilder.badRequest(error.details[0].message)
-
-        if(!req.query.blogPostId){ 
-            throw ErrorBuilder.badRequest('Blog post id is required')
-        }
-        const blogPostId = req.query.blogPostId as string
-        const response = await blogPostService.blogPostKeyWordsUpdate((req.user as IUser)._id, blogPostId, value)
-        ResponseFormatter.success(res, response, 'Main keywords updated');
-    }), 
-
+    // single blog post generation
     generateTitle: asyncHandler(async(req:Request, res:Response) => { 
         const {value, error} = blogPostKeyWordsUpdate.validate(req.body)
         if(error) throw ErrorBuilder.badRequest(error.details[0].message)
-
-        const blogPostId = req.query.blogPostId as string
-        if(!req.query.blogPostId){ 
-            throw ErrorBuilder.badRequest('Blog post id is required')
-        }
-        const response = await blogPostService.generateTitle((req.user as IUser)._id, blogPostId, value)
+        
+        const response = await singleBlogPostService.generateTitle((req.user as IUser)._id, value)
         ResponseFormatter.success(res, response, 'Title generated');
     }), 
 
-    // delete blog post on x modal 
-    deleteBlogPost: asyncHandler(async(req:Request, res:Response) => { 
-        if(!req.query.blogPostId){ 
-            throw ErrorBuilder.badRequest('Blog post id is required')
-        }
-        const blogPostId = req.query.blogPostId as string
-        const response = await blogPostService.deleteBlogPost((req.user as IUser)._id, blogPostId)
-        ResponseFormatter.success(res, response, 'Blog post deleted');
-    }), 
+    generateMonthlyTraffic: asyncHandler(async(req:Request, res:Response) => { 
+        const {value, error} = blogPostKeyWordsUpdate.validate(req.body)
+        if(error) throw ErrorBuilder.badRequest(error.details[0].message)
 
-    generateBlogPost: asyncHandler(async(req:Request, res:Response) => { 
-        if(!req.query.blogPostId){ 
-            throw ErrorBuilder.badRequest('Blog post id is required')
-        }
+        const response = await singleBlogPostService.generateMonthlyTraffic((req.user as IUser)._id, value)
+        ResponseFormatter.success(res, response, 'Monthly traffic for keywords generated');
+    }),
+     
+    generateSingleArticle: asyncHandler(async(req:Request, res:Response) => { 
         const {value, error} = generateBlogPost.validate(req.body)
         if(error) throw ErrorBuilder.badRequest(error.details[0].message)
-        const blogPostId = req.query.blogPostId as string
-        const response = await blogPostService.generateSingleBlogPost((req.user as IUser)._id, blogPostId, value)
-        ResponseFormatter.success(res, response, 'Blog post generated');
-    }), 
 
+        const response = await singleBlogPostService.generateSingleArticle((req.user as IUser)._id, value)
+        ResponseFormatter.success(res, response, 'Single article generated');
+    }),
+    // -------------------------------------------------------------------------------
+    // bulk blog post generation
     generateMainKeywords: asyncHandler(async(req:Request, res:Response) => { 
         const {value, error} = blogPostKeyWordsUpdate.validate(req.body)
         if(error) throw ErrorBuilder.badRequest(error.details[0].message)
 
-        const response = await blogPostService.generateMainKeywords((req.user as IUser)._id, value)
+        const response = await bulkBlogPostService.generateMainKeywords((req.user as IUser)._id, value)
         ResponseFormatter.success(res, response, 'Main keywords generated');
     }), 
 
@@ -72,7 +48,7 @@ export const blogPostController = {
         const {value, error} = generateBulkKeywords.validate(req.body)
         if(error) throw ErrorBuilder.badRequest(error.details[0].message)
 
-        const response = await blogPostService.generateBulkKeywords((req.user as IUser)._id, value)
+        const response = await bulkBlogPostService.generateBulkKeywords((req.user as IUser)._id, value)
         ResponseFormatter.success(res, response, 'Bulk keywords generated');
     }),
 
@@ -80,20 +56,60 @@ export const blogPostController = {
         const {value, error} = generateBulkTitle.validate(req.body)
         if(error) throw ErrorBuilder.badRequest(error.details[0].message)
 
-        const response = await blogPostService.generateBulkTitle((req.user as IUser)._id, value)
+        const response = await bulkBlogPostService.generateBulkTitle((req.user as IUser)._id, value)
         ResponseFormatter.success(res, response, 'Bulk titles generated');
     }), 
-
-    getBlogPost: asyncHandler(async(req:Request, res:Response) => { 
-        const response = await blogPostService.getBlogPost((req.user as IUser)._id, req.query.domainId as string, req.query.batchId as string)
-        ResponseFormatter.success(res, response, 'Blog post fetched');
-    }),
 
     initiateBulkGeneration: asyncHandler(async(req:Request, res:Response) => { 
         const {value, error} = generateBulkArticles.validate(req.body)
         if(error) throw ErrorBuilder.badRequest(error.details[0].message)
 
-        const response = await blogPostService.initiateBulkGeneration((req.user as IUser)._id, value.articles)
+        const response = await bulkBlogPostService.initiateBulkGeneration((req.user as IUser)._id, value.articles)
         ResponseFormatter.success(res, response, 'Bulk generation initiated');
+    }),
+
+    //-------------------------------------------------------------------------------------
+    // crud operations
+    getBlogPost: asyncHandler(async(req:Request, res:Response) => { 
+        const response = await crudBlogPostService.getBlogPost((req.user as IUser)._id, req.query.domainId as string, req.query.batchId as string)
+        ResponseFormatter.success(res, response, 'Blog post fetched');
+    }),
+
+    getSingleBlogPost: asyncHandler(async(req:Request, res:Response) => { 
+        const response = await crudBlogPostService.getSingleBlogPost((req.user as IUser)._id, req.query.blogPostId as string)
+        ResponseFormatter.success(res, response, 'Blog post fetched');
+    }),
+    
+    updateBlogPost: asyncHandler(async(req:Request, res:Response) => { 
+        const {value, error} = updateBlogPost.validate(req.body)
+        if(error) throw ErrorBuilder.badRequest(error.details[0].message)
+
+        const blogPostId = req.query.blogPostId as string
+        if(!blogPostId){ 
+            throw ErrorBuilder.badRequest('Blog post id is required')
+        }
+        const response = await crudBlogPostService.updateBlogPost((req.user as IUser)._id, blogPostId, value)
+        ResponseFormatter.success(res, response, 'Blog post updated');
+    }),
+
+    deleteBlogPost: asyncHandler(async(req:Request, res:Response) => { 
+        if(!req.query.blogPostId){ 
+            throw ErrorBuilder.badRequest('Blog post id is required')
+        }
+        const blogPostId = req.query.blogPostId as string
+        const response = await crudBlogPostService.deleteBlogPost((req.user as IUser)._id, blogPostId)
+        ResponseFormatter.success(res, response, 'Blog post deleted');
+    }),
+
+    updateBlogPostSection: asyncHandler(async(req:Request, res:Response) => { 
+        const {value, error} = updateBlogPostSection.validate(req.body)
+        if(error) throw ErrorBuilder.badRequest(error.details[0].message)
+
+        if(!req.query.blogPostId){  
+            throw ErrorBuilder.badRequest('Blog post id is required')
+        }
+        const blogPostId = req.query.blogPostId as string
+        const response = await crudBlogPostService.editBlogPostSection((req.user as IUser)._id, blogPostId, value)
+        ResponseFormatter.success(res, response, 'Blog post section updated');
     }),
 }

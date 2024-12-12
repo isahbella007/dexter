@@ -1,24 +1,33 @@
-import rateLimit from 'express-rate-limit';
-import { ResponseFormatter } from '../utils/errors/ResponseFormatter';
-import { AppError } from '../utils/errors/AppError';
-import { ErrorType } from '../utils/errors/errorTypes';
+import { Request, Response, NextFunction } from 'express';
+import { RateLimiterMemory } from 'rate-limiter-flexible';
+import { ErrorBuilder } from '../utils/errors/ErrorBuilder';
 
-const GeneralRateLimiter = rateLimit({
-  limit: 30,
-  windowMs: 1 * 60 * 1000,
-  message: 'Too many requests',
-  statusCode: 429,
-  standardHeaders: true,
-  handler: (req, res) => {
-    ResponseFormatter.error(
-      res,
-      new AppError(
-        'Woah waohhh calm dow, too many requests!!!',
-        ErrorType.RATE_LIMIT,
-        429
-      )
-    );
-  },
+// Single operations limiter
+const singleOperationsLimiter = new RateLimiterMemory({
+    points: 5, // Number of requests
+    duration: 60 // Per minute
 });
 
-export { GeneralRateLimiter };
+// Bulk operations limiter
+const bulkOperationsLimiter = new RateLimiterMemory({
+    points: 2, // Number of requests
+    duration: 300 // Per 5 minutes
+});
+
+export const rateLimitSingle = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        await singleOperationsLimiter.consume(req.params.userId || req.body.userId);
+        next();
+    } catch (error) {
+        next(ErrorBuilder.tooManyRequests('Too many requests. Please try again later.'));
+    }
+};
+
+export const rateLimitBulk = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        await bulkOperationsLimiter.consume(req.params.userId || req.body.userId);
+        next();
+    } catch (error) {
+        next(ErrorBuilder.tooManyRequests('Too many bulk requests. Please try again later.'));
+    }
+};

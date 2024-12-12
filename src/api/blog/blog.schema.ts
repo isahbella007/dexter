@@ -10,7 +10,10 @@ export const generateSingleTemplate = Joi.object({
 })
 
 export const blogPostKeyWordsUpdate = Joi.object({ 
-    mainKeyword: Joi.string().trim().min(1).max(100).required()
+    mainKeyword: Joi.alternatives().try(
+        Joi.string(),
+        Joi.array().items(Joi.string()).max(80)
+    ), 
     
 })
 
@@ -20,7 +23,7 @@ export const generateBlogPost = Joi.object({
         Joi.array().items(Joi.string()).max(80)
     ), 
     title: Joi.string().trim().min(1).max(100).required(), 
-    aiPrompt: Joi.string().trim().min(1).max(1000).required()
+    aiPrompt: Joi.string().trim().min(1).max(1000).optional()
 })
 
 export const generateBulkTitle = Joi.object({ 
@@ -39,3 +42,16 @@ export const generateBulkArticles = Joi.object({
         keywords: Joi.array().items(Joi.string()).max(10).required()
     })).required()
 })
+
+export const updateBlogPost = Joi.object({ 
+    // blogPostId: Joi.string().required(),
+    mainKeyword: Joi.string().optional(),
+    title: Joi.string().optional(),
+    content: Joi.string().required()
+})
+
+export const updateBlogPostSection = Joi.object({ 
+    selectedText: Joi.string().required(),
+    AIPrompt: Joi.string().required()
+})
+

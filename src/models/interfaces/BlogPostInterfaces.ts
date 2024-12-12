@@ -94,9 +94,9 @@ export interface IBlogPost {
     mainKeyword: string[] | string;
     title: string;
     keywords: string[];
+    aiPrompt: string;
     estimatedMonthlyTraffic: number;
     content: string;           // Markdown content
-    contentHtml?: string;      // Rendered HTML (optional, can be generated on-the-fly)
     metadata: IMetadata;
     seoAnalysis: ISEOAnalysis;
     featuredImage: {
@@ -120,11 +120,8 @@ export interface IBlogPost {
     structure: IStructureSettings;
     performance: IPerformanceMetrics;
     platformPublications: IPlatformPublication[];
-    isTemporary: boolean;
     singleFormTemporary: boolean; //this holds the temp status of the form when doing single post generation 
     singleFormExpiresAt?:Date;
-    // expired AT is for free users who want to do the single post generation. we leave their post so that when they upgrade within 7 days, they still see it
-    expiresAt?: Date;
     generationType: 'single' | 'bulk' | 'demo';
     createdAt: Date;
     updatedAt: Date;
@@ -147,4 +144,10 @@ export interface IGenerationBatch {
     articles: IGenerationBatchArticle[];
     startedAt: Date;
     completedAt: Date;
+}
+
+export interface IBlogContentInput {
+    mainKeyword: string | string[];
+    title: string;
+    AIPrompt?: string;
 }

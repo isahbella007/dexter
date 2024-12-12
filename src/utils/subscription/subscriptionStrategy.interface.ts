@@ -6,12 +6,9 @@ export interface ISubscriptionStrategy {
     getMaxDomains?(): number;
     getMaxPlatforms?(): number;
     getSinglePostLimit?(): number;
-    getBulkPostAccess?(): 'none' | 'demo' | 'full';
-    getMaxBulkPosts?(): number;
-    getPostsPerBulk?(): number;
-    getMaxDailyPosts?(): number;
     isContentTemporary?(): boolean;
 
     // blog related methods keyword generation 
     getMaxKeywords?(): number;
+    getMaxBulkGenerationUse?(): number;
 }

@@ -1,4 +1,6 @@
+import { BlogPost } from "../../models/BlogPost";
 import { Domain } from "../../models/Domain";
+import { GenerationBatch } from "../../models/GenerationBatch";
 import { IUser } from "../../models/interfaces/UserInterface";
 import { SubscriptionType } from "../../models/Subscription";
 import { UsageTracking } from "../../models/UsageTracking";
@@ -214,24 +216,16 @@ export class SubscriptionFeatureService {
                 isTemporary: false
             }
         }else{ 
-            // this means they are a free user so we want to check if they have done a single blog post before
-            const user = await User.findById(userId)
-            if(!user){ 
-                throw ErrorBuilder.notFound("User not found")
-            }
-            if(user.singleBlogPostCount == 1){ 
+            const blogPost = await BlogPost.findOne({userId: userId, generationType: 'single'})
+            if(blogPost){ 
                 return {
                     canCreate: false,
-                    message: "You cannot create more single blog posts because you are on the free plan. Please upgrade to a paid plan to continue",
-                    remainingPosts: 0, 
-                    isTemporary: false
+                    message: "You have used up your free single post. Please upgrade to continue"
                 }
             }else{ 
                 return {
                     canCreate: true,
-                    message: "You can create a post",
-                    remainingPosts: limit, 
-                    isTemporary: true
+                    message: "You can create a post"
                 }
             }
 
@@ -241,39 +235,38 @@ export class SubscriptionFeatureService {
     async canCreateBulkPosts(userId?: string): Promise<{
         canCreate: boolean;
         message: string;
-        remainingBulk?: number;
-        postsPerBulk?: number;
         isTemporary?: boolean;
     }> {
         const strategy = await this.determineStrategy(userId);
         const context = strategy.getStrategy();
 
-        if (!context.getBulkPostAccess) {
+        if (!context.getMaxBulkGenerationUse) {
             return {
                 canCreate: false,
                 message: "Visitors cannot create bulk posts"
             };
         }
 
-        const access = context.getBulkPostAccess();
-        if (access === 'none') {
+        const maxBulkGenerationUse = context.getMaxBulkGenerationUse()
+        if(maxBulkGenerationUse === -1){ 
             return {
-                canCreate: false,
-                message: "Your plan doesn't support bulk post creation"
-            };
+                canCreate: true,
+                message: "You can create bulk posts",
+            }
+        }else{ 
+            const batchCheck = await GenerationBatch.findOne({userId: userId})
+            if(batchCheck){ 
+                return {
+                    canCreate: false,
+                    message: "You have used up your free bulk generation use. Please upgrade to continue"
+                }
+            }else{ 
+                return {
+                    canCreate: true,
+                    message: "You can create bulk posts",
+                }
+            }
         }
-
-        if(access == 'demo'){ 
-            // here I need to check if the user has already generated a blog post that is in temp that is, demo
-        }
-
-        return {
-            canCreate: true,
-            message: "You can create bulk posts",
-            remainingBulk: context.getMaxBulkPosts?.() ?? 0,
-            postsPerBulk: context.getPostsPerBulk?.() ?? 0,
-            isTemporary: false
-        };
     }
 
     async getMaxKeywords(userId?: string): Promise<number>{ 

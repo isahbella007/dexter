@@ -9,7 +9,6 @@ import passport from 'passport';
 import path from 'path';
 import session from 'express-session';
 import { config } from './config';
-import { GeneralRateLimiter } from './middleware/rateLimiter';
 import { ErrorHandler } from './middleware/errorHandler';
 import { createSubPlan } from './scripts/subscriptionPlan';
 import routes from './routes';
@@ -59,8 +58,6 @@ app.use(routes);
 // Logging
 app.use(httpLogger);
 
-// Rate Limiting
-app.use(GeneralRateLimiter);
 
 // Serve from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));

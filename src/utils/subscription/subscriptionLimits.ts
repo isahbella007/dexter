@@ -7,12 +7,9 @@ interface ISubscriptionLimits{
     maxDomains: number; 
     maxPlatforms: number;
     singlePostGeneration: number;
-    bulkPostAccess: 'none' | 'demo' | 'full';
-    maxBulkPosts: number;
-    postsPerBulk: number;
-    maxDailyPosts: number;
     isTemporary: boolean;
     maxKeywords: number;
+    maxBulkGenerationUse: number
     // add more as needed 
 }
 
@@ -24,12 +21,9 @@ export const SUBSCRIPTION_LIMITS: Record<SubscriptionType, ISubscriptionLimits> 
         maxDomains: 0,
         maxPlatforms: 0,
         singlePostGeneration: 0,
-        bulkPostAccess: 'none',
-        maxBulkPosts: 0,
-        postsPerBulk: 0,
-        maxDailyPosts: 0,
         isTemporary: true, 
         maxKeywords: 0,
+        maxBulkGenerationUse: 0,
     },
     [SubscriptionType.FREE]: {
         type: SubscriptionType.FREE,
@@ -38,12 +32,9 @@ export const SUBSCRIPTION_LIMITS: Record<SubscriptionType, ISubscriptionLimits> 
         maxDomains: 1,
         maxPlatforms: 1,
         singlePostGeneration: 1,
-        bulkPostAccess: 'demo',
-        maxBulkPosts: 10,
-        postsPerBulk: 10,
-        maxDailyPosts: 10,
         isTemporary: true, 
         maxKeywords: 2,
+        maxBulkGenerationUse: 1,
     },
     [SubscriptionType.PRO]: {
         type: SubscriptionType.PRO,
@@ -52,11 +43,8 @@ export const SUBSCRIPTION_LIMITS: Record<SubscriptionType, ISubscriptionLimits> 
         maxDomains: -1, // unlimited
         maxPlatforms: -1, // unlimited
         singlePostGeneration: -1, // unlimited
-        bulkPostAccess: 'full',
-        maxBulkPosts: 100,
-        postsPerBulk: 10,
-        maxDailyPosts: 100,
         isTemporary: false, 
         maxKeywords: 10,
+        maxBulkGenerationUse: -1,
     }
 };
