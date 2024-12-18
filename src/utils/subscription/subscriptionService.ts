@@ -278,6 +278,15 @@ export class SubscriptionFeatureService {
         }
         return context.getMaxKeywords()
     }
+
+    async getUserPlan(userId:string): Promise<string>{ 
+        const strategy = await this.determineStrategy(userId)
+        const context = strategy.getStrategy()
+        if(!context.getUserPlan){ 
+            throw ErrorBuilder.badRequest("This plan doesn't visitors")
+        }
+        return context.getUserPlan()
+    }
 }
 
 export const subscriptionFeatureService = new SubscriptionFeatureService()

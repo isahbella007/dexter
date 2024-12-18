@@ -10,6 +10,7 @@ interface ISubscriptionLimits{
     isTemporary: boolean;
     maxKeywords: number;
     maxBulkGenerationUse: number
+    userPlan: string
     // add more as needed 
 }
 
@@ -24,6 +25,7 @@ export const SUBSCRIPTION_LIMITS: Record<SubscriptionType, ISubscriptionLimits> 
         isTemporary: true, 
         maxKeywords: 0,
         maxBulkGenerationUse: 0,
+        userPlan: 'visitor'
     },
     [SubscriptionType.FREE]: {
         type: SubscriptionType.FREE,
@@ -35,6 +37,7 @@ export const SUBSCRIPTION_LIMITS: Record<SubscriptionType, ISubscriptionLimits> 
         isTemporary: true, 
         maxKeywords: 2,
         maxBulkGenerationUse: 1,
+        userPlan: 'free'
     },
     [SubscriptionType.PRO]: {
         type: SubscriptionType.PRO,
@@ -46,5 +49,6 @@ export const SUBSCRIPTION_LIMITS: Record<SubscriptionType, ISubscriptionLimits> 
         isTemporary: false, 
         maxKeywords: 10,
         maxBulkGenerationUse: -1,
+        userPlan: 'pro'
     }
 };

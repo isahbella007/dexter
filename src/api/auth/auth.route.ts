@@ -15,6 +15,7 @@ authRouter.post('/refresh-token', authController.refreshToken)
 
 authRouter.post('/login', authController.login)
 authRouter.post('/logout', authenticate, authController.logout)
+authRouter.post('/logout-all-devices', authenticate, authController.logoutAllDevices)
 
 // MFA
 authRouter.post('/setup-mfa', authenticate, authController.setupMFA)

@@ -277,6 +277,24 @@ export class AuthService{
     async logout(userId: string){ 
 
     }
+
+    async logoutFromAllDevices(userId: string) {
+        const user = await User.findById(userId);
+        if (!user) {
+          throw ErrorBuilder.notFound("User not found");
+        }
+    
+        // Clear MFA settings completely
+        user.mfa.secret = undefined;
+        user.mfa.enabled = false;
+        user.tokenVersion = (user.tokenVersion || 0) + 1;
+
+        await user.save();
+    
+        return {
+          message: "Successfully logged out from all devices and disabled MFA"
+        };
+    }
     // private classes
     private async validateEmailPassword(
         email: string,

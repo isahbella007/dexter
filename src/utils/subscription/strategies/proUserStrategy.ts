@@ -27,5 +27,7 @@ export class ProStrategy implements ISubscriptionStrategy{
     getMaxBulkGenerationUse(): number {
         return SUBSCRIPTION_LIMITS[SubscriptionType.PRO].maxBulkGenerationUse;
     }
-    
+    getUserPlan(): string {
+        return SUBSCRIPTION_LIMITS[SubscriptionType.PRO].userPlan;
+    }
 }

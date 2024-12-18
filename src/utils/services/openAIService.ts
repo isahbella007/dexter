@@ -1,4 +1,5 @@
 import { openai } from "../../config/openai";
+import { ArticleType, POV, ToneOfVoice } from "../../models/BlogPostCoreSettings";
 import { IBlogContentInput, IGenerationBatchArticle } from "../../models/interfaces/BlogPostInterfaces";
 import { ErrorBuilder } from "../errors/ErrorBuilder";
 
@@ -6,16 +7,23 @@ interface IKeywordGenerationResponse {
     keywords: string[];
 }
 
-// interface ISectionEditInput {
-//     selectedSection: string;
-//     AIPrompt: string;
-//     surroundingContext: {
-//         previousSection?: string;
-//         nextSection?: string;
-//     };
-//     mainKeyword: string | string[];
-//     title: string;
-// }
+interface RegenerationConfig {
+    language: string;
+    articleSize: ArticleType;
+    toneOfVoice: ToneOfVoice;
+    pointOfView: POV;
+    targetCountry?: string;
+    humanizeText?: boolean;
+    aiModel: string;
+    customAPIKey?: string;
+    tokenConfig: {
+        minTokens: number;
+        maxTokens: number;
+        totalTokens: number;
+    };
+    mainKeyword: string | string[];
+    title: string;
+}
 
 interface ISectionEditInput {
     selectedText: string;
@@ -82,30 +90,6 @@ export class OpenAIService {
         return title.length > 100 ? title.substring(0, 97) + '...' : title;
     }
 
-    // async generateBlogContent(article: {mainKeyword: string, title: string}, model: string): Promise<string> {
-    //     const systemPrompt = `You are a professional blog writer. 
-    //     Format your response in Markdown with the following structure:
-    //     - Use ## for main headings
-    //     - Use ### for subheadings
-    //     - Include bullet points where appropriate
-    //     - Format important text in **bold**
-    //     - Use *italic* for emphasis
-    //     - Include a table if relevant
-    //     - End with an FAQ section if relevant`;
-
-    //     const response = await openai.chat.completions.create({
-    //         model,
-    //         messages: [
-    //             { role: "system", content: systemPrompt },
-    //             { role: "user", content: `Write a blog post about ${article.mainKeyword}. Title: ${article.title}` }
-    //         ],
-    //         temperature: 0.7, 
-    //         max_tokens: 1200
-    //     });
-
-    //     return response.choices[0].message?.content || '';
-    // }
-
     async generateBlogContent(article: IBlogContentInput, model: string): Promise<string> {
         // Format keywords for prompt
         const keywords = Array.isArray(article.mainKeyword) 
@@ -141,51 +125,6 @@ export class OpenAIService {
         return response.choices[0].message?.content || '';
     }
 
-    // async generateSectionEdit(input: ISectionEditInput, model: string): Promise<string> {
-    //     const keywords = Array.isArray(input.mainKeyword) 
-    //         ? input.mainKeyword.join(', ')
-    //         : input.mainKeyword;
-
-    //     const systemPrompt = `You are a professional blog content editor.
-    //     Your task is to rewrite a section of content while maintaining:
-    //     1. Consistency with surrounding content
-    //     2. The overall tone and style
-    //     3. Natural inclusion of keywords
-    //     4. Markdown formatting
-        
-    //     The content should seamlessly fit between the previous and next sections.`;
-
-    //     const userPrompt = `Title: ${input.title}
-    //     Keywords to include: ${keywords}
-        
-    //     CONTEXT:
-    //     ${input.surroundingContext.previousSection ? 
-    //       `Previous section:\n${input.surroundingContext.previousSection}\n` : 
-    //       'This is the starting section.\n'}
-        
-    //     SECTION TO EDIT:
-    //     ${input.selectedSection}
-        
-    //     ${input.surroundingContext.nextSection ? 
-    //       `Next section:\n${input.surroundingContext.nextSection}` : 
-    //       'This is the ending section.'}
-        
-    //     User Instructions: ${input.AIPrompt}
-        
-    //     Please rewrite the SECTION TO EDIT while maintaining flow with surrounding content.`;
-
-    //     const response = await openai.chat.completions.create({
-    //         model,
-    //         messages: [
-    //             { role: "system", content: systemPrompt },
-    //             { role: "user", content: userPrompt }
-    //         ],
-    //         temperature: 0.7,
-    //         max_tokens: 1000
-    //     });
-
-    //     return response.choices[0].message?.content || '';
-    // }
     async generateSectionEdit(input: ISectionEditInput, model: string): Promise<string> {
         const keywords = Array.isArray(input.mainKeyword) 
             ? input.mainKeyword.join(', ')
@@ -234,6 +173,76 @@ export class OpenAIService {
         });
 
         return response.choices[0].message?.content || '';
+    }
+
+    async regenerateBlogContent( config: RegenerationConfig): Promise<string> {
+        try{ 
+            // generate the main content 
+            const content = await this.generateArticleContent(config)
+            return content
+        }catch(error){ 
+            throw ErrorBuilder.internal("Failed to regenerate blog content")
+        } 
+    }
+
+    private async generateArticleContent(config: RegenerationConfig): Promise<string> {
+        const systemPrompt = this.buildSystemPrompt(config);
+        const userPrompt = this.buildUserPrompt(config);
+
+        console.log('done with the prompts')
+        try{
+            const completion = await openai.chat.completions.create({
+                model: config.aiModel,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                temperature: config.humanizeText ? 0.7 : 0.3,
+                max_tokens: config.tokenConfig.totalTokens,
+                // apiKey: config.customAPIKey
+            });
+            console.log('completion',completion.choices[0].message?.content)
+            return completion.choices[0].message?.content || '';
+        }catch(error){
+            console.log(error)
+        }
+        return ''
+
+     
+    }
+
+    private buildSystemPrompt(config: RegenerationConfig): string {
+        console.log('made it to the system prompt')
+        return `You are an expert content writer with deep knowledge in SEO and marketing.
+        Write in ${config.language} using a ${config.toneOfVoice.toLowerCase()} tone.
+        Use ${config.pointOfView.toLowerCase()} person point of view.
+        ${config.targetCountry ? `\nTarget audience is from: ${config.targetCountry}` : ''}
+
+        Format your response in Markdown with the following structure:
+        - Use ## for main headings
+        - Use ### for subheadings
+        - Include bullet points where appropriate
+        - Format important text in **bold**
+        - Use *italic* for emphasis
+        - Include a table if relevant
+        - End with an FAQ section if relevant
+        ${config.humanizeText ? 'Write in a conversational, human-like style.' : 'Maintain professional clarity.'}`;
+    }
+
+    private buildUserPrompt(config: RegenerationConfig): string {
+        console.log('made it to the user prompt')
+        const keywords = Array.isArray(config.mainKeyword) 
+            ? config.mainKeyword.join(', ') 
+            : config.mainKeyword;
+
+        return `Write a comprehensive article titled "${config.title}".
+        Main keywords to target: ${keywords}
+        Required word count: ${config.tokenConfig.minTokens}-${config.tokenConfig.maxTokens} words.
+
+        Follow these structural requirements:
+        1. Create an engaging introduction
+
+        Ensure all content is factual, well-researched, and provides value to readers.`;
     }
 }
 

@@ -5,11 +5,13 @@ import { handleError } from './general';
 import { ErrorBuilder } from '../errors/ErrorBuilder';
 import dayjs from 'dayjs';
 import { IUser } from '../../models/interfaces/UserInterface';
+import { User } from '../../models/User';
 interface IJwtPayload {
   id: string; //this is the user id 
   exp: number;
   iat: number;
   email: string
+  tokenVersion: number;
 }
 
 const JWT_SECRET = config.jwt.secret;
@@ -20,6 +22,7 @@ export function generateToken(user: IUser): string {
     {
       id: user._id,
       email: user.email,
+      tokenVersion: user.tokenVersion,
       iat: dayjs().unix(),
     },
     JWT_SECRET,
@@ -32,6 +35,7 @@ export function generateRefreshToken(user:IUser):string{
     {
       id: user._id,
       email: user.email,
+      tokenVersion: user.tokenVersion,
       iat: dayjs().unix(),
     },
     config.jwt.refreshSecret,
@@ -54,7 +58,19 @@ export const verifyRefreshToken = async(refreshToken: string, secret = config.jw
 
   const currentTime = Date.now() / 1000
 
-  if(currentTime > refreshTokenTime) { throw ErrorBuilder.unauthorized('Token expired')}
+  if(currentTime > refreshTokenTime) { throw ErrorBuilder.unauthorized('Refresh Token expired')}
+
+  const user = await User.findById(decoded.id);
+  if (!user) {
+      throw ErrorBuilder.unauthorized('User not found');
+  }
+
+  // Check if token version matches current user version
+  if (user.tokenVersion !== decoded.tokenVersion) {
+    throw ErrorBuilder.unauthorized(
+        'Token version mismatch. You must have signed out from all devices. Sign in again'
+    );
+}
 
   return jwt.verify(refreshToken, secret) as IJwtPayload
   

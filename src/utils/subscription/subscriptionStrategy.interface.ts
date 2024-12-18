@@ -1,6 +1,7 @@
 export interface ISubscriptionStrategy {
     getDailyLimit(): number;
     getAIModel(): string; 
+    getUserPlan?(): string;
 
     // blog related methods
     getMaxDomains?(): number;

@@ -16,6 +16,7 @@ const userSchema = new Schema<IUser>(
             secret: {type: String, required: false}, 
             backupCodes: {type: [String], required: false}
         },
+        tokenVersion: {type: Number, default: 0},
         isEmailVerified: {type: Boolean, required: false, default: true}, //!!TODO: set this back to false when you have worked on the email sending 
         emailVerificationToken: { type: String },
         emailVerificationExpires: { type: Date},
@@ -27,18 +28,6 @@ const userSchema = new Schema<IUser>(
     }
 )
 
-// Prevent multiple accounts from same IP
-//!!TODO: test and recall why you have this
-// userSchema.pre('save', async function(next) {
-//     if (this.isNew && this.ipAddress) {
-//         const existingUser = await User.findOne({ ipAddress: this.ipAddress });
-//         if (existingUser) {
-//             throw new Error('An account already exists from this IP address');
-//         }
-//     }
-//     next();
-// });
-
 userSchema.methods.toJSON = function() {
     const userObject = this.toObject();
     delete userObject.password;
@@ -46,6 +35,7 @@ userSchema.methods.toJSON = function() {
     delete userObject.emailVerificationToken;
     delete userObject.passwordResetToken;
     delete userObject.stripeCustomerId;
+    delete userObject.tokenVersion;
     // Remove payment and status history from subscription
     if (userObject.subscription) {
         delete userObject.subscription.paymentHistory;

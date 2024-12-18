@@ -7,6 +7,7 @@ import { config } from '../config';
 interface JwtPayload {
     id: string;
     email: string;
+    tokenVersion: number;
     role?: string;
     iat?: number;
     exp?: number
@@ -29,6 +30,13 @@ export const authenticate = async (
       const user = await User.findById(decoded.id).select('-passwordHash');
       if (!user) {
         throw ErrorBuilder.unauthorized('User not found');
+      }
+
+      let decodedTokenVersion = decoded.tokenVersion ? decoded.tokenVersion : 0
+      if(user.tokenVersion !== decodedTokenVersion){
+        console.log('user token version', user.tokenVersion)
+        console.log('decoded token version', decoded.tokenVersion)
+        throw ErrorBuilder.unauthorized('Token version mismatch. You must have signed out from all devices. Sign in again');
       }
   
       if (!user.isEmailVerified) {

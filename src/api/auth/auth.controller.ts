@@ -178,5 +178,11 @@ export const authController = {
         // 4. Redirecting to login page
         
         ResponseFormatter.success(res, null, 'Logged out successfully');
+    }),
+
+    logoutAllDevices: asyncHandler(async(req:Request, res:Response) => { 
+        const userId = (req.user as IUser)._id;
+        await authService.logoutFromAllDevices(userId);
+        ResponseFormatter.success(res, null, 'Logged out from all devices successfully');
     })
 }

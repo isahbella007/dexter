@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ArticleType, ArticleTypeMaxWords, POV, ToneOfVoice } from "../BlogPostCoreSettings";
 
 export interface IMediaSettings {
     includeImages: boolean;
@@ -7,16 +8,22 @@ export interface IMediaSettings {
     imageSizes: string;
     includeVideos: boolean;
     videoCount: number;
+    keywordInFirstImage: boolean;
+    customInstructions: string;
+    autoPlacement: boolean;
+    layoutOptions: string;
 }
 
 export interface IPostSettings {
     language: string;
-    articleSize: 'small' | 'medium' | 'large';
-    toneOfVoice: string;
+    articleSize: ArticleType;
+    articleMaxWords: ArticleTypeMaxWords;
+    toneOfVoice: ToneOfVoice;
     aiModel: string;
-    pointOfView: string;
+    pointOfView: POV;
     targetCountry: string;
     humanizeText: boolean;
+    customAPIKey?: string;
 }
 
 export interface IStructureSettings {
@@ -120,8 +127,8 @@ export interface IBlogPost {
     structure: IStructureSettings;
     performance: IPerformanceMetrics;
     platformPublications: IPlatformPublication[];
-    singleFormTemporary: boolean; //this holds the temp status of the form when doing single post generation 
-    singleFormExpiresAt?:Date;
+    linking: ILinkingSettings;
+    advanced: IAdvancedSettings
     generationType: 'single' | 'bulk' | 'demo';
     createdAt: Date;
     updatedAt: Date;
@@ -150,4 +157,38 @@ export interface IBlogContentInput {
     mainKeyword: string | string[];
     title: string;
     AIPrompt?: string;
+}
+
+export interface ILinkingSettings {
+    internal: {
+        enabled: boolean;
+        wordpressSite?: string;  // Selected WordPress site for internal linking
+        autoIndex: boolean;      // Automatically index site for relevant links
+    };
+    external: {
+        enabled: boolean;
+        linkType: string;        // Dropdown selection for link types
+        manualLinks?: string[];  // User-specified external links
+        autoIntegrate: boolean;  // Automatically integrate authoritative links
+    };
+}
+
+export interface IAdvancedSettings {
+    webConnectivity: {
+        enabled: boolean;
+        searchDepth: string;     // Dropdown for search depth
+    };
+    outlineEditor: {
+        enabled: boolean;
+        magicBagEnabled: boolean;  // Generate real-time outline from top-ranking articles
+        headlines: Array<{
+            text: string;
+            order: number;
+        }>;
+        aiModel: string;          // "GPT-4 128k turbo" as default
+    };
+    directory: {
+        path: string;            // Directory path for saving changes
+        name: string;            // Directory name
+    };
 }

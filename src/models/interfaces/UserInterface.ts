@@ -11,6 +11,7 @@ export interface IUser extends Document{
         backupCodes?: string[];
       };
     mfaToken?: string;
+    tokenVersion: number;
     isEmailVerified: boolean;
     emailVerificationToken?: string; 
     emailVerificationExpires?: Date;

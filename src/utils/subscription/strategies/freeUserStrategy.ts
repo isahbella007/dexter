@@ -27,6 +27,8 @@ export class FreeStrategy implements ISubscriptionStrategy{
     getMaxBulkGenerationUse(): number {
         return SUBSCRIPTION_LIMITS[SubscriptionType.FREE].maxBulkGenerationUse;
     }
-
+    getUserPlan(): string {
+        return SUBSCRIPTION_LIMITS[SubscriptionType.FREE].userPlan;
+    }
 
 }

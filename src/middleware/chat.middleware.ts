@@ -24,10 +24,11 @@ export const chatAuth = async (req: Request, res: Response, next: NextFunction) 
         const clientIp = getClientIp(req);
         console.log('The client IP is', clientIp)
         // check if the IP already has a registered user 
-        const existingUser = await User.findOne({ ipAddress: clientIp });
-        if(existingUser){ 
-            throw ErrorBuilder.forbidden('An account already exists with this IP address. Please login to continue.')
-        }
+        // !!TODO:: Uncomment this 
+        // const existingUser = await User.findOne({ ipAddress: clientIp });
+        // if(existingUser){ 
+        //     throw ErrorBuilder.forbidden('An account already exists with this IP address. Please login to continue.')
+        // }
         
         if (visitorId == undefined) {
             // Generate new visitor ID
