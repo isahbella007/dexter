@@ -5,6 +5,7 @@ import { handleError } from "../helpers/general";
 export class MigrationService { 
     static async migrateVisitorChats(userId:string, visitorId:string, ipAddress:string){
         try{ 
+            console.log('begin chat migrations')
             // find all chats with the visitorId
             const visitorChats = await Chat.find({ 
                 $or: [
@@ -12,6 +13,7 @@ export class MigrationService {
                     { visitorIp: ipAddress }
                 ]
             });
+            console.log('visitor prev chat =>', visitorChats)
 
             // Update all chats to the new user
             await Chat.updateMany(

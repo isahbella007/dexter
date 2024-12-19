@@ -19,9 +19,11 @@ export const authController = {
         const ipAddress = getClientIp(req);
         let visitorId:string | undefined = undefined;
         
-        
+        console.log('there is a visitor id in the cookies =>', req.cookies.visitorId)
         if(req.cookies.visitorId){ 
-            visitorId = (req as any).visitor?.id //set it to this because the controllers need the cookie immediately it has been set
+            console.log('found')
+            visitorId = req.cookies.visitorId
+            console.log(visitorId, (req as any).visitor)
         }
         const user = await authService.registerUser(value, ipAddress, visitorId);
         const responseData = { userId: user._id };
@@ -34,6 +36,8 @@ export const authController = {
                 maxAge: 0,
                 sameSite: 'strict'
             });
+
+            (req as any).visitor = undefined
         }
         ResponseFormatter.success(
             res,

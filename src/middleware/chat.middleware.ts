@@ -16,40 +16,34 @@ export const chatAuth = async (req: Request, res: Response, next: NextFunction) 
         }
 
         // If no auth header, treat as visitor
-        // Check for existing visitor ID in cookies
-
-        let visitorId = req.cookies.visitorId;
-        console.log(' the visitor id in the chat middleware =>', visitorId)
-
         const clientIp = getClientIp(req);
-        console.log('The client IP is', clientIp)
-        // check if the IP already has a registered user 
-        // !!TODO:: Uncomment this 
-        // const existingUser = await User.findOne({ ipAddress: clientIp });
-        // if(existingUser){ 
-        //     throw ErrorBuilder.forbidden('An account already exists with this IP address. Please login to continue.')
-        // }
         
-        if (visitorId == undefined) {
-            // Generate new visitor ID
+        // IMPORTANT: Always check cookie first
+        let visitorId = req.cookies.visitorId;
+        console.log('Cookie visitorId:', visitorId);
+
+        if (!visitorId) {
+            // Only generate new if we don't have a cookie
             visitorId = uuidv4();
-            console.log('the new visitor id is =>', visitorId)
+            console.log('Generated new visitor id:', visitorId);
             
-            // Set cookie with appropriate options
+            // Set cookie only when we generate a new ID
             res.cookie('visitorId', visitorId, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
                 maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-                sameSite: 'strict'
+                sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
             });
         }
-        // Attach visitor info to request
+
+        // IMPORTANT: Always attach the visitor object with the cookie value
         (req as Express.Request & { visitor?: { id: string, isVisitor: boolean, ip: string } }).visitor = {
             id: visitorId,
             isVisitor: true, 
-            ip:clientIp
+            ip: clientIp
         };
 
+        console.log('Attached visitor object:', (req as any).visitor);
         next();
     } catch (error) {
         next(error);

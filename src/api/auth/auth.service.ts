@@ -19,6 +19,7 @@ export class AuthService{
             let existingUser = null
             // if there is a visitorId, check if the user exists with that visitorId
             if(visitorId !== undefined && userData.email !== undefined){ 
+                console.log('the visitor id is =>', visitorId)
                 existingUser = await User.findOne({ 
                     $or: [
                         { email },
