@@ -15,12 +15,14 @@ export const chatController = {
         let user:IUser | null = null;
         let visitorId:string | undefined = undefined;
 
+        // Modified visitor ID check
         if(req.user as IUser){ 
             user = req.user as IUser;
-        }
-        
-        if(req.cookies.visitorId){ 
-            visitorId = req.cookies.visitorId
+        } else {
+            visitorId = (req as any).visitor?.id;
+            if (!visitorId) {
+                throw ErrorBuilder.badRequest('No visitor ID found. Please ensure cookies are enabled.');
+            }
         }
         
         console.log('chat controller user =>', user?._id)
@@ -46,10 +48,11 @@ export const chatController = {
         let visitorId:string | undefined = undefined;
         if(req.user as IUser){ 
             user = req.user as IUser;
-        }
-        
-        if(req.cookies.visitorId){ 
-            visitorId = req.cookies.visitorId
+        } else {
+            visitorId = (req as any).visitor?.id;
+            if (!visitorId) {
+                throw ErrorBuilder.badRequest('No visitor ID found. Please ensure cookies are enabled.');
+            }
         }
         
         const chatId  = req.query.chatId as string;

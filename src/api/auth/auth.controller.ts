@@ -21,7 +21,7 @@ export const authController = {
         
         
         if(req.cookies.visitorId){ 
-            visitorId = req.cookies.visitorId
+            visitorId = (req as any).visitor?.id //set it to this because the controllers need the cookie immediately it has been set
         }
         const user = await authService.registerUser(value, ipAddress, visitorId);
         const responseData = { userId: user._id };
@@ -31,6 +31,7 @@ export const authController = {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
                 expires: new Date(0),
+                maxAge: 0,
                 sameSite: 'strict'
             });
         }

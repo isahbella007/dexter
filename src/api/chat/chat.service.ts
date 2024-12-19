@@ -26,8 +26,8 @@ export class ChatService{
             chat = await Chat.findById(chatId)
         }
         if(!chat){ 
-            const title = await this.generateChatTitle(message)
-            // const title = "Testing without title"
+            // const title = await this.generateChatTitle(message)
+            const title = "Testing without title"
             chat = await Chat.create({
                 userId,
                 visitorId,
@@ -51,10 +51,10 @@ export class ChatService{
         model)
 
         // add ai response 
-        const aiResponse = completion.choices[0].message.content || 'Something went wrong'
+        // const aiResponse = completion.choices[0].message.content || 'Something went wrong'
 
         // dummy response 
-        // const aiResponse = "This is a dummy response to manage tokens "
+        const aiResponse = "This is a dummy response to manage tokens "
         chat.messages.push({
             role: 'assistant',
             content: aiResponse,

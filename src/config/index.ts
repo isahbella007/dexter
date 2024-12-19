@@ -39,7 +39,8 @@ if (error) {
 
 // Export the config object
 export const config = {
-  allowedOrigins: '*',
+  allowedDevOrigins: 'http://localhost:5173',
+  allowedProdOrigins: 'https://my-dexter.vercel.app',
   env: envVars.NODE_ENV,
   port: envVars.PORT,
   mongodbUri: envVars.MONGODB_URI,
