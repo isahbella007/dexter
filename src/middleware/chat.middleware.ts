@@ -30,9 +30,9 @@ export const chatAuth = async (req: Request, res: Response, next: NextFunction) 
             // Set cookie only when we generate a new ID
             res.cookie('visitorId', visitorId, {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
+                secure: true,
                 maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-                sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+                sameSite: 'none'
             });
         }
 

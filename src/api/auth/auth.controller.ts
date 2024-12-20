@@ -31,10 +31,10 @@ export const authController = {
             // Clear the visitor cookie by setting it to expire immediately
             res.cookie('visitorId', '', {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
+                secure: true,
                 expires: new Date(0),
                 maxAge: 0,
-                sameSite: 'strict'
+                sameSite: 'none'
             });
 
             (req as any).visitor = undefined
