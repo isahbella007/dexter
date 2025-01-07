@@ -27,7 +27,12 @@ const configSchema = Joi.object({
     .default('info'),
     STRIPE_SECRET_KEY: Joi.string().required(), 
     STRIPE_WEBHOOK_KEY: Joi.string().required(),
-    OPENAI_API_KEY: Joi.string().required()
+    OPENAI_API_KEY: Joi.string().required(),
+
+    HUBSPOT_CLIENT_ID: Joi.string().required(),
+    HUBSPOT_CLIENT_SECRET: Joi.string().required(),
+    HUBSPOT_DEVELOPMENT_REDIRECT_URI: Joi.string().required(),
+    HUBSPOT_PRODUCTION_REDIRECT_URI: Joi.string().optional()
 }).unknown();
 
 // Validate and extract the config
@@ -62,7 +67,15 @@ export const config = {
     user: envVars.EMAIL_APP,
     password: envVars.EMAIL_PASSWORD, 
     from: envVars.EMAIL_FROM
+  }, 
+ 
+  hubspot: { 
+    clientId: envVars.HUBSPOT_CLIENT_ID,
+    clientSecret: envVars.HUBSPOT_CLIENT_SECRET,
+    developmentRedirectUri: envVars.HUBSPOT_DEVELOPMENT_REDIRECT_URI,
+    productionRedirectUri: envVars.HUBSPOT_PRODUCTION_REDIRECT_URI
   }
+  
 } as const;
 
 // Type for the config object

@@ -21,4 +21,6 @@ authRouter.post('/logout-all-devices', authenticate, authController.logoutAllDev
 authRouter.post('/setup-mfa', authenticate, authController.setupMFA)
 authRouter.post('/verify-mfa-setup', authenticate, authController.verifyMFASetup)
 
+// everything oAuth related 
+authRouter.get('/callback/hubspot', authController.getHubSpotAccessToken)
 export default authRouter

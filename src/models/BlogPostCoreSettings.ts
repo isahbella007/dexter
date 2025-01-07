@@ -34,14 +34,14 @@ export enum POV{
     THIRD = 'third person'
 }
 export const blogPostSettingsSchema = new Schema<IPostSettings>({
-    language: {type: String, required: true, default: 'en'},
-    articleSize: {type: String, enum: ArticleType, required: true, default: ArticleType.MEDIUM},
-    articleMaxWords: {type: Number, required: true, default: ArticleTypeMaxWords.MEDIUM},
-    toneOfVoice: {type: String, enum: ToneOfVoice, required: true, default: ToneOfVoice.FRIENDLY},
-    aiModel: {type: String, default: AiModel.GPT_3_5, required: true},
-    pointOfView: {type: String, enum: POV, required: true, default: POV.FIRST},
-    targetCountry: {type: String, required: true},
-    humanizeText: {type: Boolean, required: true, default: true},
+    language: {type: String, required: false, default: 'en'},
+    articleSize: {type: String, enum: ArticleType, required: false, default: ArticleType.MEDIUM},
+    articleMaxWords: {type: Number, required: false, default: ArticleTypeMaxWords.MEDIUM},
+    toneOfVoice: {type: String, enum: ToneOfVoice, required: false, default: ToneOfVoice.FRIENDLY},
+    aiModel: {type: String, default: AiModel.GPT_3_5, required: false},
+    pointOfView: {type: String, enum: POV, required: false, default: POV.FIRST},
+    targetCountry: {type: String, required: false},
+    humanizeText: {type: Boolean, required: false, default: true},
     customAPIKey: {type: String, required: false}
 })
 

@@ -10,6 +10,7 @@ import { generateToken } from "../../utils/helpers/jwt";
 import { verifyRefreshToken } from "../../utils/helpers/jwt";
 import { IUser } from "../../models/interfaces/UserInterface";
 import { getClientIp } from "../../utils/helpers/ipHelper";
+import { oAuthService } from "./oAuth.service";
 
 export const authController = { 
     register: asyncHandler(async(req:Request, res:Response) => { 
@@ -189,5 +190,16 @@ export const authController = {
         const userId = (req.user as IUser)._id;
         await authService.logoutFromAllDevices(userId);
         ResponseFormatter.success(res, null, 'Logged out from all devices successfully');
+    }),
+
+    getHubSpotAccessToken: asyncHandler(async(req:Request, res:Response) => { 
+        console.log('you are getting to the oauth for hubspot')
+        const token = req.query.code as string
+        if(!token) throw ErrorBuilder.badRequest('Token must be sent from hubspot')
+
+        await oAuthService.getHubSpotAccessToken(token)
+        ResponseFormatter.success(res, {}, 'App installed in your hub spot.')
+
+        // TODO:: redirect the user to a frontend 
     })
 }

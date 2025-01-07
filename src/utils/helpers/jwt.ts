@@ -6,6 +6,7 @@ import { ErrorBuilder } from '../errors/ErrorBuilder';
 import dayjs from 'dayjs';
 import { IUser } from '../../models/interfaces/UserInterface';
 import { User } from '../../models/User';
+import { dateUtils } from './date';
 interface IJwtPayload {
   id: string; //this is the user id 
   exp: number;
@@ -74,4 +75,10 @@ export const verifyRefreshToken = async(refreshToken: string, secret = config.jw
 
   return jwt.verify(refreshToken, secret) as IJwtPayload
   
+}
+
+export const verifyHubSpotToken = (exp: Date) => { 
+  const currentTime = dateUtils.getCurrentUTCDate()
+  return exp < currentTime //return true if the token is expired
+
 }
