@@ -2,7 +2,7 @@ import { createLogger, format, transports, Logger } from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
 import { config } from '../../config';
 import { addColors } from 'winston/lib/winston/config';
-const { combine, timestamp, printf, colorize, errors } = format;
+const { combine, timestamp, printf, colorize, errors, json } = format;
 
 const isProduction = config.env === 'production';
 
@@ -41,10 +41,17 @@ const logger: Logger = createLogger({
     errors({ stack: true }),
     timestamp(),
     customFormat,
-    colorize()
+    colorize(),
+    json()
   ),
   transports: [
-    new transports.Console(),
+    new transports.Console({
+      format: format.printf((info) => {
+        const entries = Object.entries(info).filter(([key]) => key !== 'timestamp' && key !== 'level' && key !== 'message');
+        const data = Object.fromEntries(entries);
+        return `${info.timestamp} ${info.level}: ${info.message} ${Object.keys(data).length > 0 ? JSON.stringify(data, null, 2) : ''}`;
+      }),
+    }),
     new DailyRotateFile({
       filename: 'logs/error-%DATE%.log',
       datePattern: 'YYYY-MM-DD',
