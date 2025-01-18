@@ -23,11 +23,14 @@ export class BulkBlogPostService {
 
         const keywords = await openAIService.generateRelatedKeywords(data.mainKeyword as unknown as string, keyWordCount, aiModel)
         
+        // Get traffic estimates for all keywords at once
+        const trafficEstimates = await blogPostService.getTrafficEstimate(keywords) as number[];
+
         // Map keywords to include traffic estimates
         const relatedKeywords: IKeywordWithTraffic[] = await Promise.all(
-            keywords.map(async (keyword) => ({
+            keywords.map(async (keyword, index) => ({
                 mainKeyword: keyword,
-                estimatedMonthlyTraffic: await blogPostService.getTrafficEstimate(keyword)
+                estimatedMonthlyTraffic: trafficEstimates[index]
             }))
         );
         
@@ -115,10 +118,10 @@ export class BulkBlogPostService {
     }
 
     async initiateBulkGeneration(userId: string, articles: IGenerationBatchArticle[], domainId?: string) {
-        // const canCreate = await subscriptionFeatureService.canCreateBulkPosts(userId)
-        // if(!canCreate.canCreate){ 
-        //     throw ErrorBuilder.forbidden(canCreate.message);
-        // }
+        const canCreate = await subscriptionFeatureService.canCreateBulkPosts(userId)
+        if(!canCreate.canCreate){ 
+            throw ErrorBuilder.forbidden(canCreate.message);
+        }
         const batch = new GenerationBatch({
             userId,
             totalArticles: articles.length,

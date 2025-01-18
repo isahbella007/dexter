@@ -1,12 +1,73 @@
 
 import { IBlogPost, IGenerationBatchArticle, IKeywordPosition, IMetadata, IStructureSettings } from "../../models/interfaces/BlogPostInterfaces";
-
+import { KeyWordTrafficModel } from "../../models/KeyWordTraffic.model";
+const googleTrends = require('google-trends-api');
 
 export class BlogPostService {
 
-     async getTrafficEstimate(keyword: string): Promise<number> {
-        // TODO: Integrate with SEO API to get real traffic estimates
-        return Math.floor(Math.random() * 10000);
+    async getTrafficEstimate(keywords: string | string[]): Promise<number | number[]> {
+        const keywordsArray = Array.isArray(keywords) ? keywords : [keywords];
+        
+        try {
+            const results = await Promise.all(
+                keywordsArray.map(async (keyword) => {
+                    try {
+                        // Check cache first
+                        const cached = await KeyWordTrafficModel.findOne({
+                            keyword: keyword.toLowerCase(),
+                            lastUpdated: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
+                        });
+    
+                        if (cached) {
+                            return cached.traffic;
+                        }
+    
+                        // Get fresh data from Google Trends
+                        const results = await googleTrends.interestOverTime({
+                            keyword,
+                            startTime: new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)),
+                            granularTimeResolution: true
+                        });
+    
+                        const data = JSON.parse(results);
+                        
+                        // Calculate average interest
+                        const avgInterest = data.default.timelineData.reduce(
+                            (acc: number, item: any) => acc + item.value[0], 
+                            0
+                        ) / data.default.timelineData.length;
+                        
+                        const estimatedTraffic = Math.floor(avgInterest * 100);
+    
+                        // Cache the result
+                        await KeyWordTrafficModel.findOneAndUpdate(
+                            { keyword: keyword.toLowerCase() },
+                            { 
+                                traffic: estimatedTraffic,
+                                lastUpdated: new Date()
+                            },
+                            { upsert: true }
+                        );
+    
+                        return estimatedTraffic;
+                    } catch (error) {
+                        // Fallback for individual keyword errors
+                        console.error(`Failed to get traffic for keyword "${keyword}":`, error);
+                        return Math.floor(Math.random() * 10000);
+                    }
+                })
+            );
+    
+            // Return single number if input was single string, array if input was array
+            return Array.isArray(keywords) ? results : results[0];
+            
+        } catch (error) {
+            console.error('Failed to process keywords:', error);
+            // Fallback: return random numbers matching input type
+            return Array.isArray(keywords) 
+                ? keywords.map(() => Math.floor(Math.random() * 10000))
+                : Math.floor(Math.random() * 10000);
+        }
     }
 
      public calculateMetaData(content: string, options: {

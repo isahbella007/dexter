@@ -90,7 +90,7 @@ export class SchedulePublishService {
             processingLock: new Date()
         });
       try {
-        // modify this to handle other platforms
+        //** */ modify this to handle other platforms
         if(schedule.platform === SYSTEM_PLATFORM.wordpress){
             if(!schedule.siteId){
                 throw ErrorBuilder.badRequest('Site ID is required for WordPress posts');
