@@ -32,7 +32,21 @@ const configSchema = Joi.object({
     HUBSPOT_CLIENT_ID: Joi.string().required(),
     HUBSPOT_CLIENT_SECRET: Joi.string().required(),
     HUBSPOT_DEVELOPMENT_REDIRECT_URI: Joi.string().required(),
-    HUBSPOT_PRODUCTION_REDIRECT_URI: Joi.string().optional()
+    HUBSPOT_PRODUCTION_REDIRECT_URI: Joi.string().optional(),
+
+    WP_CLIENT_ID: Joi.string().required(),
+    WP_CLIENT_SECRET: Joi.string().required(), 
+    WP_DEVELOPMENT_REDIRECT_URI: Joi.string().required(),
+    WP_PRODUCTION_REDIRECT_URI: Joi.string().optional(),
+
+    WIX_CLIENT_ID: Joi.string().required(),
+    WIX_DEVELOPMENT_REDIRECT_URI: Joi.string().required(),
+    WIX_PRODUCTION_REDIRECT_URI: Joi.string().optional(),
+
+    GOOGLE_CLIENT_ID: Joi.string().required(),
+    GOOGLE_CLIENT_SECRET: Joi.string().required(),
+    GOOGLE_DEVELOPMENT_REDIRECT_URI: Joi.string().required(),
+    GOOGLE_PRODUCTION_REDIRECT_URI: Joi.string().optional(),
 }).unknown();
 
 // Validate and extract the config
@@ -74,6 +88,26 @@ export const config = {
     clientSecret: envVars.HUBSPOT_CLIENT_SECRET,
     developmentRedirectUri: envVars.HUBSPOT_DEVELOPMENT_REDIRECT_URI,
     productionRedirectUri: envVars.HUBSPOT_PRODUCTION_REDIRECT_URI
+  }, 
+
+  wordpress: { 
+    clientId: envVars.WP_CLIENT_ID,
+    clientSecret: envVars.WP_CLIENT_SECRET,
+    developmentRedirectUri: envVars.WP_DEVELOPMENT_REDIRECT_URI,
+    productionRedirectUri: envVars.WP_PRODUCTION_REDIRECT_URI
+  }, 
+
+  wix: { 
+    clientId: envVars.WIX_CLIENT_ID,
+    developmentRedirectUri: envVars.WIX_DEVELOPMENT_REDIRECT_URI,
+    productionRedirectUri: envVars.WIX_PRODUCTION_REDIRECT_URI
+  }, 
+
+  google: { 
+    clientId: envVars.GOOGLE_CLIENT_ID,
+    clientSecret: envVars.GOOGLE_CLIENT_SECRET,
+    developmentRedirectUri: envVars.GOOGLE_DEVELOPMENT_REDIRECT_URI,
+    productionRedirectUri: envVars.GOOGLE_PRODUCTION_REDIRECT_URI
   }
   
 } as const;

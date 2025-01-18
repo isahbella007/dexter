@@ -25,4 +25,7 @@ blogPostRoutes.patch('/update', blogPostController.updateBlogPost)
 blogPostRoutes.patch('/update-section', blogPostController.updateBlogPostSection)
 blogPostRoutes.delete('/delete-blog-post',  blogPostController.deleteBlogPost)
 
+// post history 
+blogPostRoutes.get('/history', blogPostController.getBlogPostHistory)
+
 export default blogPostRoutes; 

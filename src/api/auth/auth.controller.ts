@@ -11,6 +11,11 @@ import { verifyRefreshToken } from "../../utils/helpers/jwt";
 import { IUser } from "../../models/interfaces/UserInterface";
 import { getClientIp } from "../../utils/helpers/ipHelper";
 import { oAuthService } from "./oAuth.service";
+import { wordpressService, WordPressService } from "../../utils/services/wordpress.service";
+import { wixService } from "../../utils/services/wix.service";
+import { googleService } from "../../utils/services/google.services";
+import { generateOAuthState, verifyOAuthState } from "../../utils/helpers/encrypt";
+import { stateSecret } from "../../constant/systemPrompt";
 
 export const authController = { 
     register: asyncHandler(async(req:Request, res:Response) => { 
@@ -201,5 +206,75 @@ export const authController = {
         ResponseFormatter.success(res, {}, 'App installed in your hub spot.')
 
         // TODO:: redirect the user to a frontend 
+    }), 
+
+    initiateWordPressOAuth: asyncHandler(async(req:Request, res:Response) => {
+        // * generate a unique state parameter that includes encrypted 
+        const state = await generateOAuthState((req.user as IUser)._id, stateSecret) 
+        const authUrl = await wordpressService.getAuthorizationUrl(state)
+        console.log('wordpress -> redirect auth', authUrl)
+        res.redirect(authUrl)
+    }), 
+
+    handleWordPressCallback: asyncHandler(async(req:Request, res:Response) => { 
+        const {code, state} = req.query
+        console.log('cose', code,state)
+
+        if(!code) throw ErrorBuilder.forbidden('User denied dexter access to their wordpress account')
+
+        if(!state) throw ErrorBuilder.badRequest('Missing state parameter')
+        
+        const userId = await verifyOAuthState(state as unknown as string, stateSecret)
+        await wordpressService.handleAuthCallback(code as string, userId)
+        // go back to the apps dashboard 
+        ResponseFormatter.success(res, {}, 'Wordpress auth callback handled successfully')
+    }), 
+
+    initiateWixOAuth: asyncHandler(async(req:Request, res:Response) => { 
+        const userId = req.user as IUser
+        const authUrl = await wixService.getAuthorizationUrl(userId._id)
+        console.log('the auth url =>', authUrl.redirectSession.fullUrl)
+        ResponseFormatter.success(res, {redirectUrl: authUrl.redirectSession.fullUrl}, 'Wix auth url generated')
+        
+    }), 
+
+    handleWixCallback: asyncHandler(async(req:Request, res:Response) => { 
+        console.log('you are getting to the wix callback', req.query)
+        const {code, state} = req.query
+
+        if(!code || !state) throw ErrorBuilder.badRequest('Code and state are required')
+
+        await wixService.handleAuthCallback(code as string, state as string)
+
+        // TODO:: discuss where to take them back to on the frontend but for now 
+        ResponseFormatter.success(res, {}, 'Wix auth callback handled successfully')
+    }), 
+
+    // get the wix member if this makes any damn sense 
+    getWixMember: asyncHandler(async(req:Request, res:Response) =>{
+        const userId = req.user as IUser
+        await wixService.getMember(userId._id )
+        ResponseFormatter.success(res, {}, 'Wix member fetched successfully')
+    }), 
+
+    //** */ google oauth
+    initiateGoogleOAuth: asyncHandler(async(req:Request, res:Response) => { 
+        console.log('the redirect url is coming here strange')
+        const state = await generateOAuthState((req.user as IUser)._id, stateSecret)
+        const authUrl = await googleService.getAuthorizationUrl(state)
+        console.log('the auth url =>', authUrl)
+        ResponseFormatter.success(res, {redirectUrl: authUrl}, 'Google auth url generated')
+    }), 
+
+    handleGoogleCallback: asyncHandler(async(req:Request, res:Response) => { 
+        console.log('you are getting to the google callback', req.query)
+        const {code, state} = req.query
+        if(!code) throw ErrorBuilder.badRequest('User denied access to their Google account')
+
+        const userId = await verifyOAuthState(state as unknown as string, stateSecret)
+        await googleService.handleCallBack(code as string, userId as string)
+        
+
+        ResponseFormatter.success(res, {}, 'Google OAuth successful');
     })
 }

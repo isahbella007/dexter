@@ -1,5 +1,4 @@
 import { BlogPost } from "../../models/BlogPost";
-import { Domain } from "../../models/Domain";
 import { GenerationBatch } from "../../models/GenerationBatch";
 import { IUser } from "../../models/interfaces/UserInterface";
 import { SubscriptionType } from "../../models/Subscription";
@@ -151,43 +150,6 @@ export class SubscriptionFeatureService {
         await tracking.save();
 
         return tracking.usages[todayUsageIndex].count
-    }
-
-    async canAddDomain(userId:string): Promise<{ 
-        createDomain: boolean;
-        message: string;
-    }> { 
-        const strategy = await this.determineStrategy(userId)
-        const context = strategy.getStrategy()
-       
-        if(!context.getMaxDomains){ 
-            return{ 
-                createDomain: false,
-                message: 'Visitors cannot add a domain. Please login'
-            }
-        }
-        const maxDomains = context.getMaxDomains()
-        // if the user maxDomain is -1 allow them to add as many domains as they want
-        if(maxDomains === -1){ 
-            return {
-                createDomain: true, 
-                message: 'Proceed with adding a domain '
-            }
-        }else{ 
-            // check if the user has added a domain already 
-            const domainCheck = await Domain.findOne({userId: userId})
-            if(domainCheck){ 
-                return{ 
-                    createDomain: false,
-                    message: "You have used up your free domain addition. Please upgrade to continue"
-                }
-            }else{ 
-                return{ 
-                    createDomain: true,
-                    message: "Proceed with adding a domain"
-                }
-            }
-        }
     }
     async canCreateSinglePost(userId?: string): Promise<{ 
         canCreate: boolean; 

@@ -22,6 +22,33 @@ export interface IUser extends Document{
     ipAddress?: string;
     visitorId?: string;
     singleBlogPostCount: number;
+    oauth?: { 
+      wordpress: {
+        accessToken: string, 
+        tokenType: string, 
+        scope: string,
+        // tokens are long lived
+      }, 
+      wix: {
+        accessToken: string,
+        accessTokenExpires: Date,
+        refreshToken: string, 
+        tokenType: string, 
+        scope: string,
+        memberId: string,
+        contactId: string,
+        authSession: IWixAuthSession
+      },
+      google: {
+        accessToken: string,
+        refreshToken: string,
+        expiryDate: Date,
+        connected: boolean
+      }
+    }
+    platforms?:{
+      wordpress?: IWordPressPlatform
+    } 
     comparePassword(password:string): Promise<boolean>
 }
 
@@ -35,4 +62,22 @@ export interface IUserSettings extends Document {
       description: string, 
       services: string[],
     }
+}
+
+export interface IWordPressSite {
+  siteId: number;  // Changed to number since the ID comes as a number
+  name: string;
+  url: string | null;  // Allow null for pending sites
+}
+
+export interface IWordPressPlatform {
+  sites: IWordPressSite[];
+}
+
+export interface IWixAuthSession {
+  codeVerifier: string;
+  codeChallenge: string;
+  state: string;
+  timestamp: Date;
+  expiresAt: Date;
 }

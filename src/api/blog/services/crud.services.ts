@@ -1,6 +1,6 @@
-import { BlogPost } from "../../../models/BlogPost";
+import { BlogPost, PUBLISH_STATUS, SYSTEM_PLATFORM } from "../../../models/BlogPost";
 import { GenerationBatch } from "../../../models/GenerationBatch";
-import { IBlogPost } from "../../../models/interfaces/BlogPostInterfaces";
+import { IBlogPost, IPostMetrics } from "../../../models/interfaces/BlogPostInterfaces";
 import { ErrorBuilder } from "../../../utils/errors/ErrorBuilder";
 import { mainKeywordFormatter } from "../../../utils/helpers/formatter";
 import { openAIService } from "../../../utils/services/openAIService";
@@ -14,37 +14,180 @@ interface ISectionEditRequest {
 
 export class BlogPostCrudService { 
 
-    async getBlogPost(userId: string, domainId?: string, batchId?:string){ 
-        let blogPost 
-        if(batchId ){ 
-            if(domainId){ 
-                blogPost = await BlogPost.find({ domainId, batchId, userId })
-            }
-            else{ 
-                blogPost = await BlogPost.find({ batchId, userId })
-            }
-            const batch = await GenerationBatch.findById(batchId)
-            if(!batch){ 
+    async getBlogPost(userId: string, platform?: string, siteId?: string,  batchId?:string){ 
+        let blogPost;
+         // Validate platform if provided
+        if (platform && !Object.values(SYSTEM_PLATFORM).includes(platform as SYSTEM_PLATFORM)) {
+            throw ErrorBuilder.badRequest(
+                `Invalid platform.`
+            );
+        }
+        // Handle batch processing case
+        if (batchId) { 
+            const batch = await GenerationBatch.findById(batchId);
+            if (!batch) { 
                 throw ErrorBuilder.notFound("Batch not found");
             }
-            if(batch.status === 'processing'){ 
-                return{ 
+            if (batch.status === 'processing') { 
+                return { 
                     blogPost, 
                     metrics: { 
                         totalArticles: batch.totalArticles, 
                         completedArticles: batch.completedArticles, 
                         progress: (batch.completedArticles / batch.totalArticles) * 100
                     }
-                }
+                };
             }
-        } else if(domainId){ 
-            blogPost = await BlogPost.find({ domainId, userId })
-        } else { 
-            blogPost = await BlogPost.find({ userId })
         }
-        return {blogPost}
+
+        // Handle different query scenarios
+        if (platform && siteId) {
+            // Both platform and site provided
+            blogPost = await BlogPost.find({ 
+                userId,
+                'platformPublications.platform': platform, 
+                'platformPublications.publishedSiteId': siteId 
+            });
+        } else if (platform) {
+            // Only platform provided
+            blogPost = await BlogPost.find({
+                userId,
+                'platformPublications.platform': platform 
+            });
+        } else {
+            // No filters, return all user's posts
+            blogPost = await BlogPost.find({ userId });
+        }
+
+        return { blogPost };
     }
 
+    async getBlogPostHistory(userId: string, page: number, platform?: string, siteId?: string) { 
+        if (platform && !Object.values(SYSTEM_PLATFORM).includes(platform as SYSTEM_PLATFORM)) {
+            throw ErrorBuilder.badRequest(
+                `Invalid platform.`
+            );
+        }
+
+        const limit = 10;
+        const skip = (page - 1) * limit;
+        
+        // Build query object based on provided filters
+        const query: any = { userId }; // Start with userId as base filter
+        
+        if (platform && siteId) {
+            query['platformPublications.platform'] = platform;
+            query['platformPublications.publishedSiteId'] = siteId;
+        } else if (platform) {
+            query['platformPublications.platform'] = platform;
+        }
+
+        // Use the same query object for both finding and counting
+        const [postHistory, total] = await Promise.all([
+            BlogPost.find(query)
+                .select([
+                    'title',
+                    'mainKeyword',
+                    'keywords',
+                    'createdAt',
+                    'status',
+                    'seoScore',
+                    'metadata',
+                    'seoAnalysis',
+                    'platformPublications'
+                ])
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit),
+            BlogPost.countDocuments(query)
+        ]);
+        const metrics = await this.getPostMetrics(userId, platform as SYSTEM_PLATFORM)
+       // Create a map of metrics by postId for efficient lookup
+        const metricsMap = metrics.reduce((acc, metric) => {
+            acc[metric.postId] = metric;
+            return acc;
+        }, {} as Record<string, IPostMetrics>);
+
+        // Combine posts with their metrics using postId
+        const postsWithMetrics = postHistory.map(post => ({
+            ...post.toObject(),
+            metrics: metricsMap[post._id.toString()] || {}
+        }));
+
+        return { 
+            posts: postsWithMetrics, 
+            total, 
+            hasMore: total > skip + postHistory.length,
+            currentPage: page,
+            totalPages: Math.ceil(total / limit)
+        };
+    }
+
+    async getPostMetrics(userId: string, platform?: SYSTEM_PLATFORM, siteId?: string){ 
+        // Only get metrics for published posts
+        const query: any = {
+            userId,
+            'platformPublications.status': PUBLISH_STATUS.published
+        };
+
+        if (platform) {
+            query['platformPublications.platform'] = platform;
+        }
+        if (siteId) {
+            query['platformPublications.publishedSiteId'] = siteId;
+        }
+
+        const publishedPosts = await BlogPost.find(query)
+            .select(['platformPublications'])
+            .lean();
+
+        // console.log('get post metrics -> publishedPOst', JSON.stringify(publishedPosts, null, 2))
+        const metrics = await Promise.all(
+            publishedPosts.map(post => this.getMetricsForPost(post, platform))
+        )
+        return metrics 
+    }
+
+    async getMetricsForPost(post: any, platform?: SYSTEM_PLATFORM){ 
+        // console.log('the post passed in getMetricsForPost', post )
+        const defaultMetrics:IPostMetrics = {
+            postId: post._id.toString(),
+            views: 0,
+            engagement: 0,
+            traffic: 0,
+            averagePosition: 0,
+            crawlError: 0,
+            organicTraffic: 0,
+            bounceRate: 0,
+            pagesPerSession: 0
+        };
+    
+        if (!platform) {
+            return defaultMetrics;
+        }
+        try {
+            let metrics: IPostMetrics;
+            switch (platform) {
+                case SYSTEM_PLATFORM.wordpress:
+                    metrics = defaultMetrics;
+                    // metrics = await this.getWordPressMetrics(post);
+                    break;
+                case SYSTEM_PLATFORM.shopify:
+                    metrics = defaultMetrics;
+                    // metrics = await this.getShopifyMetrics(post);
+                    break;
+                case SYSTEM_PLATFORM.wix:
+                    metrics = defaultMetrics;
+                    break;
+                default:
+                    metrics = defaultMetrics;
+            }
+            return { ...metrics, postId: post._id.toString() }; // Ensure postId is included
+        } catch (error) {
+            console.error(`Failed to fetch metrics for post: ${post._id}`, error);
+            return defaultMetrics;
+        }
+    }
     async getSingleBlogPost(userId: string, blogPostId: string){ 
         const blogPost = await BlogPost.findOne({_id: blogPostId, userId})
         if(!blogPost){ 

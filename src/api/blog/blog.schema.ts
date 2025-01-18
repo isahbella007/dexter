@@ -5,8 +5,7 @@ export const generateSingleTemplate = Joi.object({
     mainKeyword: Joi.alternatives().try(
         Joi.string(),
         Joi.array().items(Joi.string()).max(80)
-    ), 
-    domainId: Joi.string().optional()
+    )
 })
 
 export const blogPostKeyWordsUpdate = Joi.object({ 
@@ -55,3 +54,10 @@ export const updateBlogPostSection = Joi.object({
     AIPrompt: Joi.string().required()
 })
 
+export const getBlogPostSchema = Joi.object({ 
+    batchId: Joi.string().optional(),
+    userId: Joi.string().optional(),
+    platform: Joi.string().optional(),
+    siteId: Joi.string().optional(), 
+    page: Joi.string().optional()
+})

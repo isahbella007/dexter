@@ -10,7 +10,12 @@ import { IUser } from "../../models/interfaces/UserInterface";
 import { MigrationService } from "../../utils/services/migrationService";
 import { emailService } from "../../utils/services/emailService";
 
-export class AuthService{ 
+export class AuthService{
+    async getCurrentDataForUser(userId: string){ 
+        const result = await User.findById({_id: userId})
+        return result
+    } 
+
     async registerUser(userData: Partial<IUser>, ipAddress:string, visitorId?:string): Promise<IUser>{ 
         try{ 
             const {email, password} = userData
