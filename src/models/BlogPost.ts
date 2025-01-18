@@ -32,7 +32,8 @@ export enum GENERATION_TYPE {
 export enum PUBLISH_STATUS { 
     pending = 'pending', 
     published = 'published',
-    failed = 'failed'
+    failed = 'failed',
+    completed = 'completed'
 }
 
 const blogPostSchema = new Schema<IBlogPost>({

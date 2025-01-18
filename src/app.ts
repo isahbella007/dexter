@@ -15,6 +15,7 @@ import routes from './routes';
 import cookieParser from 'cookie-parser';
 import subscriptionRoutes from './api/subscription/subscription.routes';
 import { SubscriptionController } from './api/subscription/subscription.controller';
+import { schedulerService } from './utils/services/scheduler.service';
 
 const app = express();
 
@@ -72,10 +73,16 @@ connectToDatabase()
     logger.info('MongoDB connected successfully');
     // call the function that then creates the subscriptions used in the system with their product/plan id for free and pro
     // createSubPlan()
+    // start the scheduler
+    schedulerService.start().catch((error) => {
+      logger.error('Failed to start scheduler:', error);
+    });
   })
   .catch((error) => {
     logger.error('Failed to connect to MongoDB:', error);
     process.exit(1);
   });
+
+  
 
 export default app;

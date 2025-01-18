@@ -5,8 +5,25 @@ import { ResponseFormatter } from "../../utils/errors/ResponseFormatter";
 import { asyncHandler } from "../../utils/helpers/asyncHandler"
 import { Request, Response } from "express";
 import { wordpressPublishService } from "./services/wordpress.publish.service";
+import { SYSTEM_PLATFORM } from "../../models/BlogPost";
+import { schedulePostSchema } from "./publishSchema";
+import { schedulePublishService } from "./services/schedule.publish.service";
 
 export const publishController = {
+    schedulePost: asyncHandler(async (req: Request, res: Response) => {
+        const userId = req?.user as IUser
+        const {blogPostId, siteId, platform, scheduledDates} = req.body
+
+        const {value, error} = schedulePostSchema.validate(req.body)
+        if(error) throw ErrorBuilder.badRequest(error.message)
+       
+        // check if the platform is valid
+        if(!Object.values(SYSTEM_PLATFORM).includes(platform)) throw ErrorBuilder.badRequest('Invalid platform')
+        
+        await schedulePublishService.schedulePost(userId._id, blogPostId, siteId, platform, scheduledDates)
+        ResponseFormatter.success(res, {}, 'Post scheduled successfully')
+    }),
+
     refreshWordPressSites: asyncHandler(async (req: Request, res: Response) => {
         const userId = req?.user as IUser
         const wpAccessToken = (req?.user as IUser).oauth?.wordpress?.accessToken
