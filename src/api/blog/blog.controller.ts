@@ -3,7 +3,7 @@ import { ErrorBuilder } from '../../utils/errors/ErrorBuilder';
 import { IUser } from '../../models/interfaces/UserInterface';
 import { ResponseFormatter } from '../../utils/errors/ResponseFormatter';
 import { asyncHandler } from '../../utils/helpers/asyncHandler';
-import { blogPostKeyWordsUpdate, generateBlogPost, generateBulkArticles, generateBulkKeywords, generateBulkTitle, generateSingleTemplate, updateBlogPost, updateBlogPostSection } from './blog.schema';
+import { blogPostKeyWordsUpdate, generateBlogPost, generateBulkArticles, generateBulkKeywords, generateBulkTitle, generateSingleTemplate, getBlogPostSchema, updateBlogPost, updateBlogPostSection } from './blog.schema';
 import { singleBlogPostService } from './services/single.services';
 import { bulkBlogPostService } from './services/bulk.services';
 import { crudBlogPostService } from './services/crud.services';
@@ -70,9 +70,26 @@ export const blogPostController = {
 
     //-------------------------------------------------------------------------------------
     // crud operations
-    getBlogPost: asyncHandler(async(req:Request, res:Response) => { 
-        const response = await crudBlogPostService.getBlogPost((req.user as IUser)._id, req.query.domainId as string, req.query.batchId as string)
+    getBlogPost: asyncHandler(async(req:Request, res:Response) => {
+        const {error, value} = getBlogPostSchema.validate(req.body)
+        if(error) throw ErrorBuilder.badRequest(error.details[0].message)
+
+        const platform = req.body?.platform || undefined;
+        const siteId = req.body?.siteId || undefined;
+        const batchId = req.body?.batchId || undefined;
+        const response = await crudBlogPostService.getBlogPost((req.user as IUser)._id, platform, siteId, batchId )
         ResponseFormatter.success(res, response, 'Blog post fetched');
+    }),
+
+    getBlogPostHistory: asyncHandler(async(req:Request, res:Response) => { 
+        const {error, value} = getBlogPostSchema.validate(req.body)
+        if(error) throw ErrorBuilder.badRequest(error.details[0].message)
+
+        const page = req.body?.page || 1
+        const platform = req.body?.platform || undefined;
+        const siteId = req.body?.siteId || undefined;
+        const response = await crudBlogPostService.getBlogPostHistory((req.user as IUser)._id, page, platform, siteId )
+        ResponseFormatter.success(res, response, 'Blog post history fetched');
     }),
 
     getSingleBlogPost: asyncHandler(async(req:Request, res:Response) => { 

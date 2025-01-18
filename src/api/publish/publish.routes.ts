@@ -1,0 +1,8 @@
+import { Router } from "express"
+import { publishController } from "./publish.controller"
+
+const publishRoutes = Router()
+
+publishRoutes.post('/wordpress/refresh-sites', publishController.refreshWordPressSites)
+publishRoutes.post('/wordpress', publishController.publishBlogPost)
+export default publishRoutes

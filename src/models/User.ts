@@ -4,6 +4,26 @@ import { subscriptionSchema } from "./Subscription";
 import { IUser } from "./interfaces/UserInterface";
 import { userSettingsSchema } from "./UserSettings";
 
+// WordPress site schema
+const WordPressSiteSchema = new Schema({
+    siteId: { type: Number, required: true },
+    name: { type: String, required: true },
+    url: { type: String, default: null }
+  }, { _id: false });
+  
+// WordPress platform schema
+const WordPressPlatformSchema = new Schema({
+    sites: [WordPressSiteSchema]    
+}, { _id: false });
+
+const WixAuthSessionSchema = new Schema({
+    codeVerifier: { type: String },
+    codeChallenge: { type: String },
+    state: { type: String },
+    timestamp: { type: Date, default: Date.now },
+    expiresAt: { type: Date }
+}, { _id: false });
+
 const userSchema = new Schema<IUser>(
     { 
         stripeCustomerId: { type: String },
@@ -23,10 +43,37 @@ const userSchema = new Schema<IUser>(
         passwordResetToken: { type: String},
         passwordResetExpires: { type: Date},
         singleBlogPostCount: Number,
+        oauth: {
+            wordpress: {
+                accessToken: {type: String, required: false}, 
+                tokenType: {type: String, required: false}, 
+                scope: {type: String, required: false}
+            },
+            wix: {
+                accessToken: {type: String, required: false}, 
+                accessTokenExpires: {type: Date, required: false},
+                refreshToken: {type: String, required: false}, 
+                tokenType: {type: String, required: false}, 
+                scope: {type: String, required: false}, 
+                memberId: {type: String, required: false},
+                contactId: {type: String, required: false},
+                authSession:WixAuthSessionSchema
+            },
+            google: {
+                accessToken: {type: String, required: false}, 
+                refreshToken: {type: String, required: false}, 
+                expiryDate: {type: Date, required: false},
+                connected: {type: Boolean, required: false}
+            }
+        },
+        platforms: {
+            wordpress: WordPressPlatformSchema
+        },
         subscription: { type: subscriptionSchema, default: () => ({}) },
         settings: { type: userSettingsSchema, default: () => ({}) },
     }
 )
+
 
 userSchema.methods.toJSON = function() {
     const userObject = this.toObject();
@@ -36,6 +83,8 @@ userSchema.methods.toJSON = function() {
     delete userObject.passwordResetToken;
     delete userObject.stripeCustomerId;
     delete userObject.tokenVersion;
+    delete userObject.oauth;
+    // delete userObject.platforms;
     // Remove payment and status history from subscription
     if (userObject.subscription) {
         delete userObject.subscription.paymentHistory;

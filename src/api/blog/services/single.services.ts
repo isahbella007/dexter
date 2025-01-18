@@ -1,4 +1,4 @@
-import { BlogPost } from "../../../models/BlogPost"
+import { BlogPost, GENERATION_TYPE, POST_STATUS } from "../../../models/BlogPost"
 import { IBlogPost } from "../../../models/interfaces/BlogPostInterfaces"
 import { ErrorBuilder } from "../../../utils/errors/ErrorBuilder"
 import { mainKeywordFormatter } from "../../../utils/helpers/formatter"
@@ -43,12 +43,11 @@ export class SingleBlogPostService {
         // create the blog post in the db 
         const blogPost = new BlogPost({
            userId,
-           domainId: data.domainId as unknown as string || null,
            mainKeyword: articlePrompt.mainKeyword,
            title: articlePrompt.title,
            content: article,
-           generationType: 'single',
-           status: 'ready', 
+           generationType: GENERATION_TYPE.single,
+           status: POST_STATUS.ready, 
            metadata: blogPostService.calculateMetaData(article, articlePrompt),
            structure: blogPostService.detectStructureFeatures(article),
            seoAnalysis: blogPostService.analyzeSEO(article, articlePrompt.mainKeyword)

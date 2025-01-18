@@ -23,4 +23,20 @@ authRouter.post('/verify-mfa-setup', authenticate, authController.verifyMFASetup
 
 // everything oAuth related 
 authRouter.get('/callback/hubspot', authController.getHubSpotAccessToken)
+
+// Wordpress oAuth
+authRouter.get('/wordpress', authenticate, authController.initiateWordPressOAuth)
+authRouter.get('/callback/wordpress', authController.handleWordPressCallback)
+
+// Wix oAuth
+authRouter.get('/wix', authenticate, authController.initiateWixOAuth)
+authRouter.get('/callback/wix', authController.handleWixCallback)
+
+// get the wix member 
+authRouter.get('/wix/member', authenticate, authController.getWixMember)
+
+// Google oAuth
+authRouter.get('/google', authenticate, authController.initiateGoogleOAuth)
+authRouter.get('/callback/google', authController.handleGoogleCallback)
+
 export default authRouter

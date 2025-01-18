@@ -51,6 +51,7 @@ export interface IPerformanceMetrics {
 export interface IPlatformPublication {
     platform: 'wordpress' | 'shopify' | 'wix';
     status: 'pending' | 'published' | 'failed';
+    publishedSiteId: number
     publishedUrl?: string;
     publishedAt?: Date;
     error?: string;
@@ -95,7 +96,6 @@ export interface IKeywordPosition {
 
 export interface IBlogPost {
     _id: string;
-    domainId: mongoose.Schema.Types.ObjectId | string;
     userId: mongoose.Schema.Types.ObjectId | string;
     batchId: mongoose.Schema.Types.ObjectId | string;
     mainKeyword: string[] | string;
@@ -144,7 +144,6 @@ export interface IGenerationBatchArticle {
 export interface IGenerationBatch {
     batchId: string;
     userId: string | mongoose.Schema.Types.ObjectId;
-    domainId: string | mongoose.Schema.Types.ObjectId;
     totalArticles: number;
     completedArticles: number;
     status: 'processing' | 'completed' | 'failed';
@@ -191,4 +190,24 @@ export interface IAdvancedSettings {
         path: string;            // Directory path for saving changes
         name: string;            // Directory name
     };
+}
+
+export interface IPostMetrics{
+    postId: string,
+    engagement: number, 
+    traffic: number,
+
+    // **views should come from the platform
+    views: number, 
+    
+    // ** from Google search console 
+    averagePosition: number,
+
+    // ** from search console
+    crawlError: number, 
+
+    // ** from Google Analytics 
+    organicTraffic: number, 
+    bounceRate: number, 
+    pagesPerSession: number
 }

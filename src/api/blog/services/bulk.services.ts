@@ -1,4 +1,4 @@
-import { BlogPost } from "../../../models/BlogPost";
+import { BlogPost, GENERATION_TYPE, POST_STATUS } from "../../../models/BlogPost";
 import { GenerationBatch } from "../../../models/GenerationBatch";
 import { IBlogPost, IGenerationBatchArticle } from "../../../models/interfaces/BlogPostInterfaces";
 import { ErrorBuilder } from "../../../utils/errors/ErrorBuilder";
@@ -115,10 +115,10 @@ export class BulkBlogPostService {
     }
 
     async initiateBulkGeneration(userId: string, articles: IGenerationBatchArticle[], domainId?: string) {
-        const canCreate = await subscriptionFeatureService.canCreateBulkPosts(userId)
-        if(!canCreate.canCreate){ 
-            throw ErrorBuilder.forbidden(canCreate.message);
-        }
+        // const canCreate = await subscriptionFeatureService.canCreateBulkPosts(userId)
+        // if(!canCreate.canCreate){ 
+        //     throw ErrorBuilder.forbidden(canCreate.message);
+        // }
         const batch = new GenerationBatch({
             userId,
             totalArticles: articles.length,
@@ -126,7 +126,6 @@ export class BulkBlogPostService {
                 ...article,
                 status: 'pending'
             })),
-            domainId: domainId || null
         });
 
         await batch.save();
@@ -173,20 +172,19 @@ export class BulkBlogPostService {
         await batch.save()
     }
 
-    async createBlogPost(article: IGenerationBatchArticle, content: string, domainId: string, userId: string, batchId: string) {
+    async createBlogPost(article: IGenerationBatchArticle, content: string, userId: string, batchId: string) {
         
         const metadata = blogPostService.calculateMetaData(content, {mainKeyword: article.mainKeyword, title: article.title})
 
         const blogPost = new BlogPost({
             userId,
-            domainId: domainId || null,
             batchId,
             mainKeyword: article.mainKeyword,
             title: article.title,
             keywords: article.keywords,
             content,
-            generationType: 'bulk',
-            status: 'ready', 
+            generationType: GENERATION_TYPE.bulk,
+            status: POST_STATUS.ready, 
             metadata, 
             structure: blogPostService.detectStructureFeatures(content), 
             seoAnalysis: blogPostService.analyzeSEO(content, article.mainKeyword)
@@ -209,7 +207,7 @@ export class BulkBlogPostService {
             //     },
             //     { new: true }
             // );
-            await this.createBlogPost(batch.articles[index], content, batch.domainId as unknown as string, batch.userId as unknown as string, batchId);
+            await this.createBlogPost(batch.articles[index], content, batch.userId as unknown as string, batchId);
         }
         // still part of promise
         else{ 

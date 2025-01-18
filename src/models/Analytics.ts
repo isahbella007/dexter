@@ -2,7 +2,6 @@ import mongoose, { Schema, model } from 'mongoose';
 
 export interface IAnalytics {
     _id: string;
-    domainId: mongoose.Schema.Types.ObjectId | string;
     userId: mongoose.Schema.Types.ObjectId | string;
     seoScores: {
         totalKeywordsScore: number;
@@ -34,7 +33,7 @@ export interface IAnalytics {
 }
 
 const analyticsSchema = new Schema<IAnalytics>({
-    domainId: { type: Schema.Types.ObjectId, ref: 'Domain', required: true },
+    // TODO:: add platform here instead 
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     seoScores: {
         totalKeywordsScore: { type: Number, default: 0 },
