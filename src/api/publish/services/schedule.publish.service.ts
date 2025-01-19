@@ -4,13 +4,14 @@ import { BlogPost, PUBLISH_STATUS, SYSTEM_PLATFORM } from '../../../models/BlogP
 import { ErrorBuilder } from '../../../utils/errors/ErrorBuilder';
 import { User } from '../../../models/User';
 import { IWordPressSite } from '../../../models/interfaces/UserInterface';
+import { shopifyPublishService, ShopifyPublishService } from './shopify.publish.service';
 
 
 export class SchedulePublishService {
   constructor(
     private wordpressPublishService: WordPressPublishService,
     // private wixPublishService: WixPublishService
-    // private shopifyPublishService: ShopifyPublishService
+    private shopifyPublishService: ShopifyPublishService
 ) {}
 
   async schedulePost(
@@ -46,6 +47,12 @@ export class SchedulePublishService {
         if (!siteExists) {
             throw ErrorBuilder.badRequest('WordPress site not found or unauthorized');
         }
+    }
+
+    // validate if siteId belongs to user in the shopfity platform
+    if(platform === SYSTEM_PLATFORM.shopify){ 
+        const shopifyId = user?.oauth?.shopify.find((shop: any) => shop._id.toString() == siteId)
+        if(!shopifyId) throw ErrorBuilder.notFound('Shopify ID not found')
     }
 
     // check if the blog post exists
@@ -102,6 +109,18 @@ export class SchedulePublishService {
           );
         }
 
+        if(schedule.platform === SYSTEM_PLATFORM.shopify){ 
+            if(!schedule.siteId){
+                throw ErrorBuilder.badRequest('Site ID is required for Shopify posts');
+            }
+            
+            await this.shopifyPublishService.publishBlogPost(
+                schedule.userId,
+                schedule.siteId,
+                schedule.blogPostId.toString()
+            )
+        }
+
         await PostSchedule.findByIdAndUpdate(schedule._id, {
           status: PUBLISH_STATUS.completed,
           updatedAt: new Date(), 
@@ -119,4 +138,4 @@ export class SchedulePublishService {
   }
 } 
 
-export const schedulePublishService = new SchedulePublishService(wordpressPublishService);
+export const schedulePublishService = new SchedulePublishService(wordpressPublishService, shopifyPublishService);

@@ -69,7 +69,7 @@ export class WordPressPublishService {
         $push: {
           platformPublications: {
             platform: SYSTEM_PLATFORM.wordpress,
-            status: PUBLISH_STATUS.published,
+            status: PUBLISH_STATUS.failed,
             error: error.message
           }
         }

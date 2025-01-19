@@ -39,4 +39,8 @@ authRouter.get('/wix/member', authenticate, authController.getWixMember)
 authRouter.get('/google', authenticate, authController.initiateGoogleOAuth)
 authRouter.get('/callback/google', authController.handleGoogleCallback)
 
+// Shopify oAuth
+authRouter.post('/shopify', authenticate, authController.initiateShopifyOAuth)
+authRouter.get('/callback/shopify', authController.handleShopifyCallback)
+
 export default authRouter

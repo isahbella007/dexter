@@ -64,7 +64,11 @@ const userSchema = new Schema<IUser>(
                 refreshToken: {type: String, required: false}, 
                 expiryDate: {type: Date, required: false},
                 connected: {type: Boolean, required: false}
-            }
+            }, 
+            shopify: [{
+                accessToken: {type: String, required: false}, 
+                storeName: {type: String, required: false}
+            }]
         },
         platforms: {
             wordpress: WordPressPlatformSchema

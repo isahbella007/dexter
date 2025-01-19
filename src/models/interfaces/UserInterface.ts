@@ -44,7 +44,11 @@ export interface IUser extends Document{
         refreshToken: string,
         expiryDate: Date,
         connected: boolean
-      }
+      },
+      shopify: [{
+        accessToken: string,
+        storeName: string
+      }]
     }
     platforms?:{
       wordpress?: IWordPressPlatform

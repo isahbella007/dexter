@@ -47,6 +47,11 @@ const configSchema = Joi.object({
     GOOGLE_CLIENT_SECRET: Joi.string().required(),
     GOOGLE_DEVELOPMENT_REDIRECT_URI: Joi.string().required(),
     GOOGLE_PRODUCTION_REDIRECT_URI: Joi.string().optional(),
+
+    SHOPIFY_CLIENT_ID: Joi.string().required(),
+    SHOPIFY_CLIENT_SECRET: Joi.string().required(),
+    SHOPIFY_DEVELOPMENT_REDIRECT_URI: Joi.string().required(),
+    SHOPIFY_PRODUCTION_REDIRECT_URI: Joi.string().optional(),
 }).unknown();
 
 // Validate and extract the config
@@ -108,6 +113,13 @@ export const config = {
     clientSecret: envVars.GOOGLE_CLIENT_SECRET,
     developmentRedirectUri: envVars.GOOGLE_DEVELOPMENT_REDIRECT_URI,
     productionRedirectUri: envVars.GOOGLE_PRODUCTION_REDIRECT_URI
+  }, 
+
+  shopify: { 
+    clientId: envVars.SHOPIFY_CLIENT_ID,
+    clientSecret: envVars.SHOPIFY_CLIENT_SECRET,
+    developmentRedirectUri: envVars.SHOPIFY_DEVELOPMENT_REDIRECT_URI,
+    productionRedirectUri: envVars.SHOPIFY_PRODUCTION_REDIRECT_URI
   }
   
 } as const;

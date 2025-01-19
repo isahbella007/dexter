@@ -16,6 +16,8 @@ import { wixService } from "../../utils/services/wix.service";
 import { googleService } from "../../utils/services/google.services";
 import { generateOAuthState, verifyOAuthState } from "../../utils/helpers/encrypt";
 import { stateSecret } from "../../constant/systemPrompt";
+import { shopifyService } from "../../utils/services/shopify.service";
+import {createHmac} from 'crypto'
 
 export const authController = { 
     register: asyncHandler(async(req:Request, res:Response) => { 
@@ -276,5 +278,42 @@ export const authController = {
         
 
         ResponseFormatter.success(res, {}, 'Google OAuth successful');
+    }), 
+
+    initiateShopifyOAuth: asyncHandler(async(req:Request, res:Response) => { 
+        const {store} = req.body
+        if(!store){ 
+            throw ErrorBuilder.badRequest('Store is required')
+        }
+       const state = await generateOAuthState((req.user as IUser)._id, stateSecret)
+       const authUrl = await shopifyService.getAuthorizationUrl(state, store as string)
+       console.log('the auth url =>', authUrl)
+       res.redirect(authUrl)
+    }), 
+
+    handleShopifyCallback: asyncHandler(async(req:Request, res:Response) => { 
+        console.log('you are getting to the shopify callback', req.query)
+        const { code, shop, state, hmac } = req.query;
+        if(!code) throw ErrorBuilder.badRequest('User denied access to their Shopify account')
+
+        if(!state) throw ErrorBuilder.badRequest('State is required')
+        
+        // Step 1: Validate the HMAC for security
+        const queryParams = { ...req.query };
+        delete queryParams["hmac"]; // Exclude the HMAC for verification
+        const message = Object.keys(queryParams)
+            .sort() // Sort keys
+            .map((key) => `${key}=${queryParams[key]}`)
+            .join("&");
+        const generatedHmac = createHmac("sha256", config.shopify.clientSecret)
+            .update(message)
+            .digest("hex");
+
+        if (generatedHmac !== hmac) {
+            return res.status(403).send("HMAC validation failed.");
+        }
+        const userId = await verifyOAuthState(state as unknown as string, stateSecret)
+        await shopifyService.handleCallback(code as string, userId as string, shop as string)
+        ResponseFormatter.success(res, {}, 'Shopify OAuth successful');     
     })
 }
