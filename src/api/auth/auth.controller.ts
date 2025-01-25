@@ -13,7 +13,7 @@ import { getClientIp } from "../../utils/helpers/ipHelper";
 import { oAuthService } from "./oAuth.service";
 import { wordpressService, WordPressService } from "../../utils/services/wordpress.service";
 import { wixService } from "../../utils/services/wix.service";
-import { googleService } from "../../utils/services/google.services";
+import { googleService } from "../../utils/services/google.service";
 import { generateOAuthState, verifyOAuthState } from "../../utils/helpers/encrypt";
 import { stateSecret } from "../../constant/systemPrompt";
 import { shopifyService } from "../../utils/services/shopify.service";
@@ -215,7 +215,7 @@ export const authController = {
         const state = await generateOAuthState((req.user as IUser)._id, stateSecret) 
         const authUrl = await wordpressService.getAuthorizationUrl(state)
         console.log('wordpress -> redirect auth', authUrl)
-        res.redirect(authUrl)
+        ResponseFormatter.success(res, {redirectUrl: authUrl}, 'Wordpress auth url generated')
     }), 
 
     handleWordPressCallback: asyncHandler(async(req:Request, res:Response) => { 
@@ -287,8 +287,7 @@ export const authController = {
         }
        const state = await generateOAuthState((req.user as IUser)._id, stateSecret)
        const authUrl = await shopifyService.getAuthorizationUrl(state, store as string)
-       console.log('the auth url =>', authUrl)
-       res.redirect(authUrl)
+       ResponseFormatter.success(res, {redirectUrl: authUrl}, 'Shopify auth url generated')
     }), 
 
     handleShopifyCallback: asyncHandler(async(req:Request, res:Response) => { 

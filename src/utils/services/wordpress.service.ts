@@ -27,6 +27,7 @@ export class WordPressService {
     this.clientId = config.wordpress.clientId;
     this.clientSecret = config.wordpress.clientSecret;
     this.redirectUri = config.wordpress.productionRedirectUri;
+    // this.redirectUri = config.wordpress.developmentRedirectUri
    
   }
 
