@@ -60,6 +60,14 @@ export const blogPostController = {
         ResponseFormatter.success(res, response, 'Bulk titles generated');
     }), 
 
+    generateRow: asyncHandler(async(req:Request, res:Response) => { 
+        const {value, error} = blogPostKeyWordsUpdate.validate(req.body)
+        if(error) throw ErrorBuilder.badRequest(error.details[0].message)
+
+        const response = await bulkBlogPostService.generateForRow((req.user as IUser)._id, value)
+        ResponseFormatter.success(res, response, 'Row data generated');
+    }),
+
     initiateBulkGeneration: asyncHandler(async(req:Request, res:Response) => { 
         const {value, error} = generateBulkArticles.validate(req.body)
         if(error) throw ErrorBuilder.badRequest(error.details[0].message)
@@ -74,9 +82,9 @@ export const blogPostController = {
         const {error, value} = getBlogPostSchema.validate(req.body)
         if(error) throw ErrorBuilder.badRequest(error.details[0].message)
 
-        const platform = req.body?.platform || undefined;
-        const siteId = req.body?.siteId || undefined;
-        const batchId = req.body?.batchId || undefined;
+        const platform = req.query?.platform as string || undefined;
+        const siteId = req.query?.siteId as string || undefined;
+        const batchId = req.query?.batchId as string || undefined;
         const response = await crudBlogPostService.getBlogPost((req.user as IUser)._id, platform, siteId, batchId )
         ResponseFormatter.success(res, response, 'Blog post fetched');
     }),
@@ -129,4 +137,6 @@ export const blogPostController = {
         const response = await crudBlogPostService.editBlogPostSection((req.user as IUser)._id, blogPostId, value)
         ResponseFormatter.success(res, response, 'Blog post section updated');
     }),
+
+    
 }

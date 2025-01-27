@@ -17,6 +17,7 @@ blogPostRoutes.post('/generate-main-keywords', rateLimitBulk, blogPostController
 blogPostRoutes.post('/generate-bulk-titles', rateLimitBulk, blogPostController.generateBulkTitles)
 blogPostRoutes.post('/generate-bulk-keywords', rateLimitBulk, blogPostController.generateBulkKeywords)
 blogPostRoutes.post('/bulk-generate', blogPostController.initiateBulkGeneration)
+blogPostRoutes.post('/generate-row', rateLimitBulk, blogPostController.generateRow)
 
 // Normal crud operation 
 blogPostRoutes.get('/', blogPostController.getBlogPost)

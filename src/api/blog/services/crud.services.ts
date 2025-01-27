@@ -24,6 +24,7 @@ export class BlogPostCrudService {
         }
         // Handle batch processing case
         if (batchId) { 
+            console.log('batchId', batchId)
             const batch = await GenerationBatch.findById(batchId);
             if (!batch) { 
                 throw ErrorBuilder.notFound("Batch not found");
@@ -37,6 +38,9 @@ export class BlogPostCrudService {
                         progress: (batch.completedArticles / batch.totalArticles) * 100
                     }
                 };
+            }else{ 
+                blogPost = await BlogPost.find({userId, batchId})
+                return {blogPost}
             }
         }
 

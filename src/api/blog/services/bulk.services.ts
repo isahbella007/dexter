@@ -3,6 +3,7 @@ import { GenerationBatch } from "../../../models/GenerationBatch";
 import { IBlogPost, IGenerationBatchArticle } from "../../../models/interfaces/BlogPostInterfaces";
 import { ErrorBuilder } from "../../../utils/errors/ErrorBuilder";
 import { openAIService } from "../../../utils/services/openAIService";
+import { replaceImagePlaceholders } from "../../../utils/services/unsplash.service";
 import { subscriptionFeatureService } from "../../../utils/subscription/subscriptionService";
 import { blogPostService } from "../blog.service";
 
@@ -12,8 +13,8 @@ interface IKeywordWithTraffic {
 }
 
 export class BulkBlogPostService { 
+    // ! everything up here seems to be outdated but let us try to get code from here we can work with.
     async generateMainKeywords(userId: string, data: Partial<IBlogPost>): Promise<IKeywordWithTraffic[]> {
-        // TODO: Integrate with AI/SEO API to generate related keywords
         const aiModel = await subscriptionFeatureService.getAIModel(userId)
         const keyWordCount = await subscriptionFeatureService.getMaxKeywords(userId)
         const canGenerate = await subscriptionFeatureService.canCreateBulkPosts(userId)
@@ -150,8 +151,9 @@ export class BulkBlogPostService {
 
                 
                 const content = await openAIService.generateBlogContent(batch.articles[index], aiModel);
-                
-                await this.updateArticleStatus(batchId, index, 'ready', content);
+                const updatedContent = await replaceImagePlaceholders(content); //updated content with image placeholders
+
+                await this.updateArticleStatus(batchId, index, 'ready', updatedContent);
 
                 batch.completedArticles += 1
                 await batch.save()
@@ -219,6 +221,21 @@ export class BulkBlogPostService {
                 { $set: { [`articles.${index}.status`]: status } }
             );
         }
+    }
+
+    async generateForRow(userId: string, data: Partial<IBlogPost>){ 
+        // based on the main keyword entered, the estimate, title and keywords are to be generated 
+        const aiModel = await subscriptionFeatureService.getAIModel(userId)
+        const canGenerate = await subscriptionFeatureService.canCreateBulkPosts(userId)
+        const keyWordCount = await subscriptionFeatureService.getMaxKeywords(userId)
+        if(!canGenerate.canCreate){ 
+            throw ErrorBuilder.badRequest(canGenerate.message)
+        }
+
+        const estimate = await blogPostService.getTrafficEstimate(data.mainKeyword as unknown as string)
+        const keywords = await openAIService.generateRelatedKeywords(data.mainKeyword as unknown as string, keyWordCount, aiModel)
+        const title = await openAIService.generateBlogTitle(data.mainKeyword as unknown as string, aiModel)
+        return {keywords, title, estimate}
     }
 }   
 

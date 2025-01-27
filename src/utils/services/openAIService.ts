@@ -53,8 +53,12 @@ export class OpenAIService {
 
     async generateRelatedKeywords(mainKeyword: string, count: number, model: string): Promise<string[]> {
         const prompt = `Generate ${count} unique, SEO-optimized related keywords for the main keyword "${mainKeyword}". 
-        The keywords should be relevant for blog content and maintain search intent.
-        Return only the keywords as a comma-separated list, without numbers or bullet points.`;
+        The keywords should:
+        Be highly relevant to the main keyword and maintain search intent.
+        Include a mix of short-tail and long-tail keywords.
+        Be suitable for blog content targeting a general audience.
+        Avoid duplicates, overly generic terms, or irrelevant phrases.
+        Be returned as a comma-separated list, without numbers, bullet points, or additional explanations`;
 
         const response = await this.generateCompletion(prompt, model);
         if (!response) {
@@ -92,9 +96,17 @@ export class OpenAIService {
 
     async generateBlogContent(article: IBlogContentInput, model: string): Promise<string> {
         // Format keywords for prompt
-        const keywords = Array.isArray(article.mainKeyword) 
+        const mainKeyword = Array.isArray(article.mainKeyword) 
             ? article.mainKeyword.join(', ')
             : article.mainKeyword;
+
+        let keywords = ''
+        if(article.keywords){ 
+            console.log('article.keywords', article.keywords)
+            keywords = Array.isArray(article.keywords) 
+                ? article.keywords.join(', ')
+                : article.keywords;
+        }
 
         const defaultSystemPrompt = `You are a professional blog writer. 
         Format your response in Markdown with the following structure:
@@ -104,13 +116,29 @@ export class OpenAIService {
         - Format important text in **bold**
         - Use *italic* for emphasis
         - Include a table if relevant
-        - End with an FAQ section if relevant`;
+        - End with an FAQ section if relevant
+        - Add image placeholders like [IMAGE: description] where relevant
+        `;
 
-        const userPrompt = `Write a comprehensive blog post about ${keywords}. 
+        let userPrompt = `Write a comprehensive blog post about ${mainKeyword}. 
         Title: ${article.title}
-        ${article.AIPrompt ? `\nAdditional Instructions: ${article.AIPrompt}` : ''}
+        ${article.AIPrompt ? `\nAdditional Instructions: ${article.AIPrompt}` : ''}`
         
-        Ensure to naturally incorporate all these keywords in the content: ${keywords}`;
+        if (keywords) {
+            userPrompt += `\n\n**Important Instructions:**
+            - Naturally incorporate **all** the following keywords into the blog post: ${keywords}.
+            - Ensure each keyword is used in a relevant and meaningful way.
+            - Include sections or subsections for keywords that require detailed explanations.
+            - Use a mix of short-tail and long-tail keywords throughout the content.
+            - Avoid keyword stuffing; prioritize readability and natural flow.
+            - Add image placeholders like [IMAGE: description] where relevant`;
+        } else {
+            userPrompt += `\n\n**Important Instructions:**
+            - Focus exclusively on the main keyword: ${mainKeyword}.
+            - Provide in-depth information, examples, and practical tips related to the main keyword.
+            - Ensure the content is engaging and well-structured.
+            - Add image placeholders like [IMAGE: description] where relevant`;
+        }
 
         const response = await openai.chat.completions.create({
             model,
@@ -119,9 +147,11 @@ export class OpenAIService {
                 { role: "user", content: userPrompt }
             ],
             temperature: 0.7,
-            max_tokens: 1200
+            // set token limit based on the keywords provided
+            max_tokens: keywords ? 2500 : 1500
         });
 
+        console.log('response from generate blog content', response.choices[0].message?.content)
         return response.choices[0].message?.content || '';
     }
 

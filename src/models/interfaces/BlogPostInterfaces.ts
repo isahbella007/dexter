@@ -155,6 +155,7 @@ export interface IGenerationBatch {
 export interface IBlogContentInput {
     mainKeyword: string | string[];
     title: string;
+    keywords?: string | string[];
     AIPrompt?: string;
 }
 

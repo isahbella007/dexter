@@ -52,6 +52,10 @@ const configSchema = Joi.object({
     SHOPIFY_CLIENT_SECRET: Joi.string().required(),
     SHOPIFY_DEVELOPMENT_REDIRECT_URI: Joi.string().required(),
     SHOPIFY_PRODUCTION_REDIRECT_URI: Joi.string().optional(),
+
+    UNSPLASH_APPLICATION_ID: Joi.string().required(),
+    UNSPLASH_ACCESS_KEY: Joi.string().required(),
+    UNSPLASH_SECRET_KEY: Joi.string().required(),
 }).unknown();
 
 // Validate and extract the config
@@ -120,6 +124,12 @@ export const config = {
     clientSecret: envVars.SHOPIFY_CLIENT_SECRET,
     developmentRedirectUri: envVars.SHOPIFY_DEVELOPMENT_REDIRECT_URI,
     productionRedirectUri: envVars.SHOPIFY_PRODUCTION_REDIRECT_URI
+  },
+
+  unsplash: { 
+    applicationId: envVars.UNSPLASH_APPLICATION_ID,
+    accessKey: envVars.UNSPLASH_ACCESS_KEY,
+    secretKey: envVars.UNSPLASH_SECRET_KEY
   }
   
 } as const;

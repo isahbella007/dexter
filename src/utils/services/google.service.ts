@@ -9,22 +9,20 @@ export class GoogleOAuthHandler {
     private REDIRECT_URI: string;
     private SCOPES: string[];
     private oAuth2Client: OAuth2Client;
-    private analytics: any;
-    private analyticsData: any;
+   
 
     constructor() {
       // You'll get these values from Google Cloud Console
       this.CLIENT_ID = config.google.clientId;
       this.CLIENT_SECRET = config.google.clientSecret;
-      this.REDIRECT_URI = config.google.productionRedirectUri; // Change in production
+      // this.REDIRECT_URI = config.google.productionRedirectUri; // Change in production
+      this.REDIRECT_URI = config.google.developmentRedirectUri;
   
       this.oAuth2Client = new OAuth2Client(
         this.CLIENT_ID,
         this.CLIENT_SECRET,
         this.REDIRECT_URI
       );
-      this.analytics = google.analyticsreporting('v4');
-      this.analyticsData = google.analyticsdata('v1beta');
 
       // Define the scopes you need
       this.SCOPES = [
@@ -84,49 +82,6 @@ export class GoogleOAuthHandler {
         throw error;
       }
     }
-
-
-
-    async fetchAnalyticsForMultiplePosts(propertyId: string, pagePaths: string[]) {
-
-      // Get all posts for a site
-      // const posts = await wordpress.getPosts(siteId);
-      // const pagePaths = posts.map(post => new URL(post.fullUrl).pathname);
-
-      // Fetch analytics for all posts at once
-      // const analytics = await fetchAnalyticsForMultiplePosts(siteGA4Id, pagePaths);
-      const request = {
-          property: `properties/${propertyId}`,
-          dateRanges: [{
-              startDate: '30daysAgo',
-              endDate: 'today'
-          }],
-          dimensions: [{
-              name: 'pagePath'
-          }],
-          metrics: [{
-              name: 'screenPageViews'
-          }, {
-              name: 'engagedSessions'
-          }],
-          dimensionFilter: {
-              orGroup: {
-                  expressions: pagePaths.map(path => ({
-                      filter: {
-                          fieldName: 'pagePath',
-                          stringFilter: {
-                              value: path,
-                              matchType: 'EXACT'
-                          }
-                      }
-                  }))
-              }
-          }
-      };
-  
-      // This will return analytics for all paths in one request
-      return await this.analyticsData.runReport(request);
-  }
 
 }
 

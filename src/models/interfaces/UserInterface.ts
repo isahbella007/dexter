@@ -42,7 +42,7 @@ export interface IUser extends Document{
       google: {
         accessToken: string,
         refreshToken: string,
-        expiryDate: Date,
+        expiryDate: number,
         connected: boolean
       },
       shopify: [{

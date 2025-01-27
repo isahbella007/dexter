@@ -63,7 +63,7 @@ const userSchema = new Schema<IUser>(
             google: {
                 accessToken: {type: String, required: false}, 
                 refreshToken: {type: String, required: false}, 
-                expiryDate: {type: Date, required: false},
+                expiryDate: {type: Number, required: false},
                 connected: {type: Boolean, required: false}
             }, 
             shopify: [{
