@@ -56,6 +56,7 @@ export class WordPressPublishService {
             status: PUBLISH_STATUS.published,
             publishedSiteId: siteId,
             publishedUrl: publishedUrl.short_URL,
+            publishedSlug: publishedUrl.slug,
             publishedAt: new Date()
           }
         }

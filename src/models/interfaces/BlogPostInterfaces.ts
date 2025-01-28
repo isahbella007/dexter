@@ -53,6 +53,7 @@ export interface IPlatformPublication {
     status: 'pending' | 'published' | 'failed';
     publishedSiteId: number
     publishedUrl?: string;
+    publishedSlug?: string;
     publishedAt?: Date;
     error?: string;
 } 

@@ -91,6 +91,7 @@ const blogPostSchema = new Schema<IBlogPost>({
         },
         publishedSiteId: {type: Number},
         publishedUrl: { type: String },
+        publishedSlug: { type: String },
         publishedAt: { type: Date },
         error: { type: String }
     }]

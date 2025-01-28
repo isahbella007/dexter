@@ -30,7 +30,9 @@ export class GoogleOAuthHandler {
         'https://www.googleapis.com/auth/userinfo.email',
         // Add other scopes as needed, for example:
         'https://www.googleapis.com/auth/analytics.readonly',
-        'https://www.googleapis.com/auth/webmasters.readonly'
+        'https://www.googleapis.com/auth/analytics.edit',
+        'https://www.googleapis.com/auth/webmasters.readonly',
+        'https://www.googleapis.com/auth/webmasters'
       ];
     }
   

@@ -9,7 +9,7 @@ const WordPressSiteSchema = new Schema({
     siteId: { type: Number, required: true },
     name: { type: String, required: true },
     url: { type: String, default: null },
-    ga4Id: { type: String, default: null } //TODO:: consider encrypting ewoooo
+    ga4TrackingCode: { type: String, default: null } //TODO:: consider encrypting ewoooo
 }, { _id: false });
   
 // WordPress platform schema

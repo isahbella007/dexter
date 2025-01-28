@@ -90,13 +90,13 @@ export const blogPostController = {
     }),
 
     getBlogPostHistory: asyncHandler(async(req:Request, res:Response) => { 
-        const {error, value} = getBlogPostSchema.validate(req.body)
-        if(error) throw ErrorBuilder.badRequest(error.details[0].message)
 
-        const page = req.body?.page || 1
-        const platform = req.body?.platform || undefined;
-        const siteId = req.body?.siteId || undefined;
-        const response = await crudBlogPostService.getBlogPostHistory((req.user as IUser)._id, page, platform, siteId )
+        const platform = req.query?.platform as string || undefined;
+        const siteId = req.query?.siteId as string || undefined;
+        if(!platform) { 
+            throw ErrorBuilder.badRequest('Platform is required')
+        }
+        const response = await crudBlogPostService.getBlogPostHistory((req.user as IUser)._id, platform, siteId )
         ResponseFormatter.success(res, response, 'Blog post history fetched');
     }),
 

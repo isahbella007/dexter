@@ -72,6 +72,7 @@ export interface IWordPressSite {
   siteId: number;  // Changed to number since the ID comes as a number
   name: string;
   url: string | null;  // Allow null for pending sites
+  ga4TrackingCode: string | null;
 }
 
 export interface IWordPressPlatform {
