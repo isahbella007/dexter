@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { ArticleType, ArticleTypeMaxWords, POV, ToneOfVoice } from "../BlogPostCoreSettings";
+import { AiModel, ArticleType, ArticleTypeMaxWords, POV, ToneOfVoice } from "../BlogPostCoreSettings";
 
 export interface IMediaSettings {
     includeImages: boolean;
@@ -19,7 +19,7 @@ export interface IPostSettings {
     articleSize: ArticleType;
     articleMaxWords: ArticleTypeMaxWords;
     toneOfVoice: ToneOfVoice;
-    aiModel: string;
+    aiModel: AiModel;
     pointOfView: POV;
     targetCountry: string;
     humanizeText: boolean;
