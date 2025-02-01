@@ -42,6 +42,7 @@
     "openai": "^4.75.0",
     "otplib": "^12.0.1",
     "passport": "^0.7.0",
+    "puppeteer": "^24.1.1",
     "rate-limiter-flexible": "^5.0.4",
     "speakeasy": "^2.0.0",
     "stripe": "^17.4.0",

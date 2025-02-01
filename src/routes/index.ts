@@ -8,6 +8,7 @@ import blogPostRoutes from "../api/blog/blog.routes";
 import settingsRoutes from "../api/settings";
 import contactRoutes from "../api/contacts/contacts.routes";
 import publishRoutes from "../api/publish/publish.routes";
+import analyticsRouter from "../api/analytics/analytics.routes";
 const router = express()
 
 router.use('/auth', authRouter)
@@ -17,6 +18,7 @@ router.use('/blog', authenticate, blogPostRoutes)
 router.use('/settings', authenticate, settingsRoutes)
 router.use('/contact', contactRoutes)
 router.use('/publish', authenticate, publishRoutes)
+router.use('/analytics', authenticate, analyticsRouter)
 
 router.get('/health', (req: Request, res: Response) =>
     ResponseFormatter.success(res, 'Server is healthy', 'UP')

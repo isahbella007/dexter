@@ -213,3 +213,22 @@ export interface IPostMetrics{
     bounceRate: number, 
     pagesPerSession: number
 }
+
+export interface SEOAnalysis {
+    metaTitle: {
+        current: string;
+        recommendations: string[];
+    };
+    metaDescription: {
+        current: string;
+        recommendations: string[];
+    };
+    internalLinks: {
+        current: number;
+        recommendations: string[];
+    };
+    missingAltTags: {
+        current: number;
+        recommendations: string[];
+    };
+}
