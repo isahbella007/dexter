@@ -30,6 +30,7 @@
     "express": "^4.21.1",
     "express-rate-limit": "^7.4.1",
     "express-session": "^1.18.1",
+    "generic-pool": "^3.9.0",
     "google-auth-library": "^9.15.0",
     "google-trends-api": "^4.9.2",
     "googleapis": "^144.0.0",

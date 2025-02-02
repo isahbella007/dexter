@@ -1,7 +1,9 @@
 import { openai } from "../../config/openai";
 import { ArticleType, POV, ToneOfVoice } from "../../models/BlogPostCoreSettings";
 import { IBlogContentInput, IGenerationBatchArticle, SEOAnalysis } from "../../models/interfaces/BlogPostInterfaces";
+import { AppError } from "../errors/AppError";
 import { ErrorBuilder } from "../errors/ErrorBuilder";
+import { ErrorType } from "../errors/errorTypes";
 
 interface IKeywordGenerationResponse {
     keywords: string[];
@@ -277,116 +279,124 @@ export class OpenAIService {
 
 
     async analyzeSEO(seoData: any): Promise<SEOAnalysis> {
-        const format = {
-            name: 'SEO_Analysis',
-            metaTitle: {
-                current: '',
-                recommendations: []
-            },
-            metaDescription: {
-                current: '',
-                recommendations: []
-            },
-            internalLinks: {
-                current: 0,
-                recommendations: []
-            },
-            missingAltTags: {
-                current: 0,
-                recommendations: []
-            }
-        }
-        const systemPrompt = `You are an AI assistant specialized in analyzing SEO data. 
-        Your task is to:
-        - Analyze the provided SEO data (meta title, meta description, internal links, and missing alt tags)
-        - Provide recommendations for improvement
-        - Return the results in a structured JSON format`;
-
-
-    
-        const response = await openai.chat.completions.create({
-            model: "gpt-4o-mini", // Use the correct model name
-            messages: [
-                {
-                    role: "system",
-                    content: systemPrompt
+        try{
+            const format = {
+                name: 'SEO_Analysis',
+                metaTitle: {
+                    current: '',
+                    recommendations: []
                 },
-                {
-                    role: "user",
-                    content: `Analyze this SEO data: 
-                    - Meta Title: ${seoData.metaTitle}
-                    - Meta Description: ${seoData.metaDescription}
-                    - Internal Links: ${seoData.internalLinksCount}
-                    - Images Missing Alt: ${seoData.imagesMissingAlt}.
-                    Parse the data and return the results in the following JSON format ${format}:
-                    `
+                metaDescription: {
+                    current: '',
+                    recommendations: []
+                },
+                internalLinks: {
+                    current: 0,
+                    recommendations: []
+                },
+                missingAltTags: {
+                    current: 0,
+                    recommendations: []
                 }
-            ],
-
-            response_format: {
-                type: "json_schema",
-                json_schema: {
-                    name: "SEO_Analysis",
-                    schema: {
-                        type: "object",
-                        properties: {
-                            metaTitle: {
-                                type: "object",
-                                properties: {
-                                    current: { type: "string" },
-                                    recommendations: {
-                                        type: "array",
-                                        items: { type: "string" }
-                                    }
-                                },
-                                required: ["current", "recommendations"]
-                            },
-                            metaDescription: {
-                                type: "object",
-                                properties: {
-                                    current: { type: "string" },
-                                    recommendations: {
-                                        type: "array",
-                                        items: { type: "string" }
-                                    }
-                                },
-                                required: ["current", "recommendations"]
-                            },
-                            internalLinks: {
-                                type: "object",
-                                properties: {
-                                    current: { type: "number" },
-                                    recommendations: {
-                                        type: "array",
-                                        items: { type: "string" }
-                                    }
-                                },
-                                required: ["current", "recommendations"]
-                            },
-                            missingAltTags: {
-                                type: "object",
-                                properties: {
-                                    current: { type: "number" },
-                                    recommendations: {
-                                        type: "array",
-                                        items: { type: "string" }
-                                    }
-                                },
-                                required: ["current", "recommendations"]
-                            }
-                        },
-                        required: ["metaTitle", "metaDescription", "internalLinks", "missingAltTags"],
-                        additionalProperties: false
-                    }
-                }
-                
-            },
-            temperature: 0.7
-        });
+            }
+            const systemPrompt = `You are an AI SEO expert with 10+ years of experience. Analyze the following SEO elements:
+                1. Meta Title: Check length (50-60 chars), keyword placement, and clarity
+                2. Meta Description: Check length (150-160 chars), keyword inclusion, and engagement
+                3. Internal Links: Assess quantity and relevance
+                4. Alt Tags: Verify presence and descriptiveness
+                5. Provide specific, actionable recommendations for improvement. Use SEO best practices and focus on measurable outcomes.
+                6. Return the results in a structured JSON format`;
     
-        // Parse the JSON response
-        const analysis = JSON.parse(response.choices[0].message.content || '{}');
-        return analysis;
+    
+        
+            const response = await openai.chat.completions.create({
+                model: "gpt-4o-mini", // Use the correct model name
+                messages: [
+                    {
+                        role: "system",
+                        content: systemPrompt
+                    },
+                    {
+                        role: "user",
+                        content: `Analyze this SEO data: 
+                        - Meta Title: ${seoData.metaTitle}
+                        - Meta Description: ${seoData.metaDescription}
+                        - Internal Links: ${seoData.internalLinksCount}
+                        - Images Missing Alt: ${seoData.imagesMissingAlt}.
+                        Parse the data and return the results in the following JSON format ${format}:
+                        `
+                    }
+                ],
+    
+                response_format: {
+                    type: "json_schema",
+                    json_schema: {
+                        name: "SEO_Analysis",
+                        schema: {
+                            type: "object",
+                            properties: {
+                                metaTitle: {
+                                    type: "object",
+                                    properties: {
+                                        current: { type: "string" },
+                                        recommendations: {
+                                            type: "array",
+                                            items: { type: "string" }
+                                        }
+                                    },
+                                    required: ["current", "recommendations"]
+                                },
+                                metaDescription: {
+                                    type: "object",
+                                    properties: {
+                                        current: { type: "string" },
+                                        recommendations: {
+                                            type: "array",
+                                            items: { type: "string" }
+                                        }
+                                    },
+                                    required: ["current", "recommendations"]
+                                },
+                                internalLinks: {
+                                    type: "object",
+                                    properties: {
+                                        current: { type: "number" },
+                                        recommendations: {
+                                            type: "array",
+                                            items: { type: "string" }
+                                        }
+                                    },
+                                    required: ["current", "recommendations"]
+                                },
+                                missingAltTags: {
+                                    type: "object",
+                                    properties: {
+                                        current: { type: "number" },
+                                        recommendations: {
+                                            type: "array",
+                                            items: { type: "string" }
+                                        }
+                                    },
+                                    required: ["current", "recommendations"]
+                                }
+                            },
+                            required: ["metaTitle", "metaDescription", "internalLinks", "missingAltTags"],
+                            additionalProperties: false
+                        }
+                    }
+                    
+                },
+                temperature: 0.7
+            });
+        
+            console.log('response', JSON.stringify(response.choices[0].message.content, null, 2))
+            // Parse the JSON response
+            const analysis = JSON.parse(response.choices[0].message.content || '{}');
+            return analysis;
+        }catch(error){
+            throw new AppError('Failed to analyze SEO data', ErrorType.UNKNOWN, 500);
+        }
+        
     };
 }
 

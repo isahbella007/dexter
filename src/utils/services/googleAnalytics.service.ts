@@ -373,4 +373,167 @@ export class GoogleAnalyticsService {
             throw new AppError(error.errors[0].message, ErrorType.UNKNOWN, error.status)
         }
     }
+
+    async fetchMetricsForUrls(urls: string[], ga4PropertyId: string) {
+        try {
+            // Get available metrics from GA4
+            const [pageViews, avgDuration, bounceRate] = await Promise.all([
+                this.getGA4Metric('screenPageViews', urls, ga4PropertyId),
+                this.getGA4Metric('averageSessionDuration', urls, ga4PropertyId),
+                this.getGA4Metric('bounceRate', urls, ga4PropertyId)
+            ]);
+
+            const [organicPageViews, organicAvgDuration, organicBounceRate] = await Promise.all([
+                this.getOrganicGA4Metric('screenPageViews', urls, ga4PropertyId),
+                this.getOrganicGA4Metric('averageSessionDuration', urls, ga4PropertyId),
+                this.getOrganicGA4Metric('bounceRate', urls, ga4PropertyId)
+            ]);
+    
+            // Return metrics with 0 for unavailable ones
+            return {
+                pageVisitsScore: { 
+                    organic: organicPageViews || 0,     
+                    total: pageViews || 0
+                },
+                avgDurationScore:{
+                    organic: organicAvgDuration || 0,
+                    total: avgDuration || 0
+                },
+                bounceRateScore: {
+                    organic: organicBounceRate || 0,
+                    total: bounceRate || 0
+                },
+                topPagesScore: {
+                    organic: 0,
+                    total: 0
+                }, // Not available in GA4
+             
+                megaTagStatusScore: {
+                    organic: 0,
+                    total: 0
+                }, // Not available in GA4
+            };
+        } catch (error) {
+            console.error('Error fetching metrics:', error);
+            return {
+                topPagesScore: 0,
+                pageVisitsScore: 0,
+                megaTagStatusScore: 0,
+                avgDurationScore: 0,
+                bounceRateScore: 0
+            };
+        }
+    }
+
+    private async getOrganicGA4Metric(metric: string, urls: string[], trackingCode: string): Promise<number> {
+        try {
+            const slugs = urls.map(url => {
+                try {
+                    const urlObj = new URL(url);
+                    // Remove leading/trailing slashes and get the slug
+                    return urlObj.pathname.replace(/^\/|\/$/g, '');
+                } catch {
+                    // If URL parsing fails, assume it's already a slug
+                    return url.replace(/^\/|\/$/g, '');
+                }
+            });
+
+            const response = await this.analyticsData.properties.runReport({
+                property: `properties/${trackingCode}`,
+                auth: this.oAuth2Client,
+                requestBody: {
+                    dateRanges: [{ startDate: '30daysAgo', endDate: 'today' }],
+                    dimensions: [{ name: 'pagePath' }],
+                    metrics: [{ name: metric }],
+                    dimensionFilter: {
+                        andGroup: {
+                            expressions: [
+                                // Filter for slugs
+                                {
+                                    orGroup: {
+                                        expressions: slugs.map(slug => ({
+                                            filter: {
+                                                fieldName: 'pagePath',
+                                                stringFilter: {
+                                                    matchType: 'CONTAINS',
+                                                    value: slug
+                                                }
+                                            }
+                                        }))
+                                    }
+                                },
+                                // Filter for organic traffic
+                                {
+                                    filter: {
+                                        fieldName: 'sessionSource',
+                                        inListFilter: {
+                                            values: [
+                                                'google', // Google
+                                                
+                                            ]
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            });
+    
+            console.log('response is', JSON.stringify(response.data, null, 2));
+            // Convert string value to number
+            const value = response.data.rows?.[0]?.metricValues?.[0]?.value;
+            return value ? parseFloat(value) : 0;
+        }catch(error){ 
+            console.error('Error fetching GA4 metric:', error);
+            return 0;
+        }
+    }
+
+    private async getGA4Metric(metric: string, urls: string[], trackingCode: string): Promise<number> {
+        try {
+            // Extract the slug from URLs
+            const slugs = urls.map(url => {
+                try {
+                    const urlObj = new URL(url);
+                    // Remove leading/trailing slashes and get the slug
+                    return urlObj.pathname.replace(/^\/|\/$/g, '');
+                } catch {
+                    // If URL parsing fails, assume it's already a slug
+                    return url.replace(/^\/|\/$/g, '');
+                }
+            });
+
+            const response = await this.analyticsData.properties.runReport({
+                property: `properties/${trackingCode}`,
+                auth: this.oAuth2Client,
+                requestBody: {
+                    dateRanges: [{ startDate: '30daysAgo', endDate: 'today' }],
+                    dimensions: [{ name: 'pagePath' }],
+                    metrics: [{ name: metric }],
+                    dimensionFilter: {
+                        orGroup: {
+                            expressions: slugs.map(slug => ({
+                                filter: {
+                                    fieldName: 'pagePath',
+                                    stringFilter: {
+                                        matchType: 'CONTAINS',
+                                        value: slug
+                                    }
+                                }
+                            }))
+                        }
+                    }
+                }
+            });
+    
+            console.log('response is', JSON.stringify(response.data, null, 2));
+            // Convert string value to number
+            const value = response.data.rows?.[0]?.metricValues?.[0]?.value;
+            return value ? parseFloat(value) : 0;
+        } catch (error) {
+            console.error(`Error fetching ${metric}:`, error);
+            return 0;
+        }
+    }
 }

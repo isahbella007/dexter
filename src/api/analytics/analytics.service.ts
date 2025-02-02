@@ -1,4 +1,6 @@
 import { BlogPost, SYSTEM_PLATFORM } from "../../models/BlogPost";
+import { IUsageDay } from "../../models/interfaces/UsageInterface";
+import { IUser } from "../../models/interfaces/UserInterface";
 import { PlatformAnalysis } from "../../models/PlatformAnalysis";
 import { User } from "../../models/User";
 import { AppError } from "../../utils/errors/AppError";
@@ -9,6 +11,7 @@ import { platformManagementService } from "../../utils/services/platformManageme
 import { mapSEOAnalysis } from "../../utils/services/seoAnalysis.service";
 
 export class AnalyticsService{ 
+   
     async fullSEOAnalysis(userId: string, platform: string, siteId?: string){
         try {
             let site
@@ -62,7 +65,7 @@ export class AnalyticsService{
                 //         .map(pub => pub.publishedUrl)
                 // ).filter(url => url); // Remove any undefined urls
 
-                const siteUrls = ['https://bestdogresources.com/top-10-dog-beds-for-yorkshire-terrier/', 'https://followup.com']
+                const siteUrls = ['https://bestdogresources.com/is-pine-straw-good-for-dog-bedding', 'https://bestdogresources.com/can-dogs-eat-vegetables', 'https://bestdogresources.com/top-10-vegetables-for-dogs-a-guide-to-nutritious-canine-diets-2', 'https://bestdogresources.com/frenchie-pee-on-bed']
                 const slugs = ['is-pine-straw-good-for-dog-bedding', 'can-dogs-eat-vegetables', 'top-10-vegetables-for-dogs-a-guide-to-nutritious-canine-diets-2', 'frenchie-pee-on-bed']
                 console.log('slugs are', slugs);
 
@@ -71,39 +74,30 @@ export class AnalyticsService{
                     return {message: "No analytics to display for this site. Nothing has been published through Dexter"};
                 }
 
-                // get the analytics from google directly
-                const googleAnalyticsService = new GoogleAnalyticsService(
-                    user?.oauth?.google?.accessToken as string, 
-                    user?.oauth?.google?.refreshToken as string, 
-                    user?.oauth?.google?.expiryDate as number
-                );
+                const [analytics, seoAnalysis] = await Promise.all([
+                    this.fetchGoogleAnalytics(user, siteUrls, site),
+                    this.getCachedSEOAnalysis(platform, siteId, siteUrls)
+                ]);
 
-                const analytics = await googleAnalyticsService.fetchAnalyticsForWordPress(slugs as unknown as string[], site?.ga4TrackingCode as string, siteUrls as unknown as string[]);
-                
-                // Get the SEO ANALYSIS by mapping etc
-                // find the exsiting analysis 
-                const existingAnalysis = await PlatformAnalysis.findOne({platform, siteId})
-
-                // check if the analysis is stale (older than 1hr)
-                const isStale = existingAnalysis && (Date.now() - existingAnalysis.updatedAt.getTime() > 3600000); // 1 hour in milliseconds
-                
-                if(!existingAnalysis || isStale){
-                    const seoAnalysis = await mapSEOAnalysis(siteUrls)
-
-                    for (const analysis of seoAnalysis) {
-                        await PlatformAnalysis.updateOne(
-                            { platform, siteId: siteId }, // Use the siteId from the analysis object
-                            {
-                                $set: {
-                                    aiAnalysis: analysis.aiAnalysis // Update only the aiAnalysis field
-                                }
-                            },
-                            { upsert: true } // Create the document if it doesn't exist
-                        );
+                return{ 
+                    analytics, 
+                    seoAnalysis: { 
+                        isFresh: true, 
+                        data: seoAnalysis
                     }
-                    return{analytics, seoAnalysis}
                 }
-                return{analytics, existingAnalysis}
+                // // get the analytics from google directly
+                // const googleAnalyticsService = new GoogleAnalyticsService(
+                //     user?.oauth?.google?.accessToken as string, 
+                //     user?.oauth?.google?.refreshToken as string, 
+                //     user?.oauth?.google?.expiryDate as number
+                // );
+
+                // const analytics = await googleAnalyticsService.fetchMetricsForUrls(siteUrls as unknown as string[], site?.ga4TrackingCode as string);
+                
+                // // Get the SEO ANALYSIS by mapping etc
+                // // find the exsiting analysis 
+                
 
             }
 
@@ -114,6 +108,49 @@ export class AnalyticsService{
             console.error('Error fetching blog posts by platform:', error);
             throw new AppError(error.errors[0].message, ErrorType.UNKNOWN, error.status)
         }
+    }
+
+    private async fetchGoogleAnalytics(user: IUser, urls: string[], site: any){ 
+        if(!user.oauth?.google?.accessToken || !user.oauth?.google?.refreshToken || !user.oauth?.google?.expiryDate) { 
+            throw ErrorBuilder.forbidden('Please connect to google')
+        }
+
+        const googleAnalyticsService = new GoogleAnalyticsService(
+            user?.oauth?.google?.accessToken as string, 
+            user?.oauth?.google?.refreshToken as string, 
+            user?.oauth?.google?.expiryDate as number
+        );
+        return googleAnalyticsService.fetchMetricsForUrls(urls, site?.ga4TrackingCode);
+    }
+
+    private async getCachedSEOAnalysis(platform: string, siteId: string, urls: string[]){ 
+        const existingAnalysis = await PlatformAnalysis.findOne({platform, siteId})
+
+        // check if the analysis is stale (older than 1hr)
+        const isStale = existingAnalysis && (Date.now() - existingAnalysis.updatedAt.getTime() > 3600000); // 1 hour in milliseconds
+        
+        if(!existingAnalysis || isStale){
+            const seoAnalysis = await mapSEOAnalysis(urls)
+
+            // Save all analyses in one document
+            await PlatformAnalysis.updateOne(
+                { platform, siteId },
+                { $set: { analysis: seoAnalysis } },
+                { upsert: true }
+            );
+
+            return {
+                seoAnalysis: {
+                    isFresh: true,
+                    data: seoAnalysis
+                }
+            };
+        }
+        return{
+            seoAnalysis: {
+            isFresh: false, 
+            data: existingAnalysis?.analysis
+        }}
     }
 }
 
