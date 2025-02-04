@@ -70,7 +70,7 @@ export class BlogPostService {
         }
     }
 
-     public calculateMetaData(content: string, options: {
+    public calculateMetaData(content: string, options: {
         mainKeyword: string;
         title: string;
     }): IMetadata {
@@ -103,7 +103,8 @@ export class BlogPostService {
             .replace(/\n{2,}/g, '\n') // Normalize line breaks
             .trim();
     }
-     public detectStructureFeatures(content: string): IStructureSettings {
+    
+    public detectStructureFeatures(content: string): IStructureSettings {
         return {
             includeHook: content.includes('Introduction') || content.startsWith('#'),
             includeConclusion: /##?\s*Conclusion/i.test(content),
@@ -119,7 +120,7 @@ export class BlogPostService {
         };
     }
 
-     public analyzeSEO(content: string, mainKeyword: string) {
+    public analyzeSEO(content: string, mainKeyword: string) {
         const lines = content.split('\n');
         const keywordPositions: IKeywordPosition[] = [];
         const keywordRegex = new RegExp(mainKeyword, 'gi');
@@ -152,7 +153,7 @@ export class BlogPostService {
         };
     }
 
-     public generateMetaDescription(content: string): string {
+    public generateMetaDescription(content: string): string {
         // TODO: Implement meta description generation logic
         return 'Meta description';
     }

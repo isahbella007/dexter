@@ -1,5 +1,5 @@
 import { ArticleType, POV, ToneOfVoice } from "../BlogPostCoreSettings";
-import { IBlogContentInput } from "./BlogPostInterfaces";
+import { IBlogContentInput, IStructureSettings } from "./BlogPostInterfaces";
 
 export interface IKeywordGenerationResponse {
     keywords: string[];
@@ -20,8 +20,17 @@ export interface RegenerationConfig {
         totalTokens: number;
     };
     mainKeyword: string | string[];
+    keywords: string | string[];
     title: string;
+    detailsToInclude?: string;
+    extraKeywords?: string[];
+    structure?: IStructureSettings;
+    internalLinks?: { title: string, url: string }[];
+    enhanceWithWebData?: boolean;
+    scrappedInsights?:string[]
 }
+
+
 
 export interface ISectionEditInput {
     selectedText: string;
@@ -41,4 +50,12 @@ export interface BaseAIService {
     regenerateBlogContent(config: RegenerationConfig): Promise<string>;
     validateAPIKey?(apiKey: string): Promise<boolean>;
     estimateTokens?(text: string): Promise<number>;
+    generateHook(hookType: string, mainKeyword: string, model: string): Promise<string>;
+}
+
+export interface IScrapedInsight {
+    keyword: string;
+    title: string;
+    snippet: string;
+    source: string;
 } 

@@ -3,7 +3,7 @@ import { ErrorBuilder } from '../../utils/errors/ErrorBuilder';
 import { IUser } from '../../models/interfaces/UserInterface';
 import { ResponseFormatter } from '../../utils/errors/ResponseFormatter';
 import { asyncHandler } from '../../utils/helpers/asyncHandler';
-import { blogPostKeyWordsUpdate, generateBlogPost, generateBulkArticles, generateBulkKeywords, generateBulkTitle, generateSingleTemplate, getBlogPostSchema, updateBlogPost, updateBlogPostSection } from './blog.schema';
+import { blogPostKeyWordsUpdate, generateBlogPost, generateBulkArticles, generateBulkKeywords, generateBulkTitle, generateHook, generateSingleTemplate, getBlogPostSchema, updateBlogPost, updateBlogPostSection } from './blog.schema';
 import { singleBlogPostService } from './services/single.services';
 import { bulkBlogPostService } from './services/bulk.services';
 import { crudBlogPostService } from './services/crud.services';
@@ -34,8 +34,18 @@ export const blogPostController = {
         const response = await singleBlogPostService.generateSingleArticle((req.user as IUser)._id, value)
         ResponseFormatter.success(res, response, 'Single article generated');
     }),
+
+    generateHook: asyncHandler(async(req:Request, res:Response) => { 
+        const {value, error} = generateHook.validate(req.body)
+        if(error) throw ErrorBuilder.badRequest(error.details[0].message)
+
+
+        const response = await singleBlogPostService.generateHook((req.user as IUser)._id, value.blogPostId, value.hookType)
+        ResponseFormatter.success(res, response, 'Hook generated');
+    }),
     // -------------------------------------------------------------------------------
     // bulk blog post generation
+
     generateMainKeywords: asyncHandler(async(req:Request, res:Response) => { 
         const {value, error} = blogPostKeyWordsUpdate.validate(req.body)
         if(error) throw ErrorBuilder.badRequest(error.details[0].message)

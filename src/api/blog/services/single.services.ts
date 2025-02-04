@@ -4,10 +4,30 @@ import { IBlogPost } from "../../../models/interfaces/BlogPostInterfaces"
 import { ErrorBuilder } from "../../../utils/errors/ErrorBuilder"
 import { mainKeywordFormatter } from "../../../utils/helpers/formatter"
 import { AIServiceFactory } from "../../../utils/services/aiServices/AIServiceFactory"
+import { replaceImagePlaceholders } from "../../../utils/services/unsplash.service"
 import { subscriptionFeatureService } from "../../../utils/subscription/subscriptionService"
 import { blogPostService } from "../blog.service"
 
 export class SingleBlogPostService {
+    async generateHook(userId: string, blogPostId: string, hookType: string) {
+        const canGenerate = await subscriptionFeatureService.canCreateSinglePost(userId)
+        if (!canGenerate.canCreate) {
+            throw ErrorBuilder.badRequest(canGenerate.message)
+
+        }
+        const aiModel = await subscriptionFeatureService.getAIModel(userId)
+        const aiService = AIServiceFactory.createService(aiModel as AiModel);
+
+        const blogPost = await BlogPost.findById(blogPostId)
+        if(!blogPost) throw ErrorBuilder.notFound('Blog post not found')
+
+        const mainKeyword = mainKeywordFormatter(blogPost.mainKeyword)
+        const hook = await aiService.generateHook(hookType, mainKeyword, aiModel)
+        return hook
+
+
+    }
+
     async generateTitle(userId: string, data: Partial<IBlogPost>) {
         const canGenerate = await subscriptionFeatureService.canCreateSinglePost(userId)
         if (!canGenerate.canCreate) {
@@ -43,17 +63,19 @@ export class SingleBlogPostService {
             AIPrompt: data.aiPrompt as unknown as string
         }
         const article = await aiService.generateBlogContent(articlePrompt, aiModel)
+        const updatedContent = await replaceImagePlaceholders(article); //updated content with image placeholders
         // create the blog post in the db 
         const blogPost = new BlogPost({
             userId,
             mainKeyword: articlePrompt.mainKeyword,
             title: articlePrompt.title,
-            content: article,
+            content: updatedContent,
             generationType: GENERATION_TYPE.single,
             status: POST_STATUS.ready,
             metadata: blogPostService.calculateMetaData(article, articlePrompt),
-            structure: blogPostService.detectStructureFeatures(article),
-            seoAnalysis: blogPostService.analyzeSEO(article, articlePrompt.mainKeyword)
+            // structure: blogPostService.detectStructureFeatures(article),
+            // seoAnalysis: blogPostService.analyzeSEO(article, articlePrompt.mainKeyword)
+
         })
         await blogPost.save()
         return blogPost

@@ -94,9 +94,13 @@ const blogPostSchema = new Schema<IBlogPost>({
         publishedSlug: { type: String },
         publishedAt: { type: Date },
         error: { type: String }
-    }]
-    // linking: {type: blogPostLinkingSchema, default: () => ({})},
+    }],
+    linking: {type: blogPostLinkingSchema, default: () => ({})},
     // advanced: {type: blogPostAdvancedSchema, default: () => ({})},
+    connectToWeb: {
+        scrappedInsights: {type: [String]},
+        enhanceWithWebData: {type: Boolean, default: false}
+    }
     
 }, { timestamps: true });
 

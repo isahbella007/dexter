@@ -7,6 +7,21 @@ export class AIPromptBuilder {
         Write in ${config.language} using a ${config.toneOfVoice.toLowerCase()} tone.
         Use ${config.pointOfView.toLowerCase()} person point of view.
         ${config.targetCountry ? `\nTarget audience is from: ${config.targetCountry}` : ''}
+        ${config.internalLinks ? `\nInternal Linking Rules:\n- Include these links naturally: ${config.internalLinks.map(link => `[${link.title}](${link.url})`).join(', ')}\n- Use exact anchor text\n- Distribute throughout content` : ''}
+
+        **Structure Rules:**
+        - ${config.structure?.includeConclusion ? 'Include a conclusion section.' : 'Do not include a conclusion section.'}
+        - ${config.structure?.includeTables ? 'Include tables where relevant.' : 'Do not include tables.'}
+        - ${config.structure?.includeH3 ? 'Use H3 headings for subsections.' : 'Do not use H3 headings.'}
+        - ${config.structure?.includeLists ? 'Include lists where relevant.' : 'Do not include lists.'}
+        - ${config.structure?.includeItalics ? 'Use italics for emphasis.' : 'Do not use italics.'}
+        - ${config.structure?.includeQuotes ? 'Include quotes where relevant.' : 'Do not include quotes.'}
+        - ${config.structure?.includeKeyTakeaway ? 'Include key takeaways.' : 'Do not include key takeaways.'}
+        - ${config.structure?.includeFAQ ? 'Include an FAQ section.' : 'Do not include an FAQ section.'}
+        - ${config.structure?.includeBold ? 'Use bold text for emphasis.' : 'Do not use bold text.'}
+        - ${config.structure?.includeBulletpoints ? 'Use bullet points where relevant.' : 'Do not use bullet points.'}
+        - Use a ${config.structure?.hookType} hook for the opening sentence.
+
 
         Format your response in Markdown with the following structure:
         - Use ## for main headings
@@ -14,30 +29,73 @@ export class AIPromptBuilder {
         - Include bullet points where appropriate
         - Format important text in **bold**
         - Use *italic* for emphasis
+
+        - Include internal links where relevant
         - Include a table if relevant
         - End with an FAQ section if relevant
         ${config.humanizeText ? 'Write in a conversational, human-like style.' : 'Maintain professional clarity.'}`;
     }
 
-    static buildUserPrompt(config: RegenerationConfig): string {
-        const keywords = Array.isArray(config.mainKeyword)
+    static buildUserPrompt(config: RegenerationConfig): {userPrompt: string, keywordPresent: boolean} {
+        const mainKeyword = Array.isArray(config.mainKeyword)
             ? config.mainKeyword.join(', ')
             : config.mainKeyword;
 
-        return `Write a comprehensive article titled "${config.title}".
-        Main keywords to target: ${keywords}
-        Required word count: ${config.tokenConfig.minTokens}-${config.tokenConfig.maxTokens} words.
+        let keywords = ''
+        if(config.keywords){
+            keywords = Array.isArray(config.keywords)
+                ? config.keywords.join(', ')
+                : config.keywords;
+        }
 
-        Follow these structural requirements:
-        1. Create an engaging introduction
+        let userPrompt = `Write a comprehensive blog post about ${mainKeyword}.
+        Title: ${config.title}`
 
-        Ensure all content is factual, well-researched, and provides value to readers.`;
+        if(keywords){
+            userPrompt += `\n\n**Important Instructions:**
+            - Naturally incorporate **all** the following keywords into the blog post: ${keywords}.
+            - Ensure each keyword is used in a relevant and meaningful way.
+            - Include sections or subsections for keywords that require detailed explanations.
+            - Use a mix of short-tail and long-tail keywords throughout the content.
+            - Avoid keyword stuffing; prioritize readability and natural flow.
+            - Ensure all content is factual, well-researched, and provides value to readers.
+            - Required word count: ${config.tokenConfig.minTokens}-${config.tokenConfig.maxTokens} words.`
+        }else{ 
+            userPrompt += `\n\n**Important Instructions:**
+            - Focus exclusively on the main keyword: ${mainKeyword}.
+            - Provide in-depth information, examples, and practical tips related to the main keyword.
+            - Ensure the content is engaging and well-structured.
+            - Ensure all content is factual, well-researched, and provides value to readers.
+            - Required word count: ${config.tokenConfig.minTokens}-${config.tokenConfig.maxTokens} words.`
+        }
+
+        // Add detailsToInclude if provided
+        if (config.detailsToInclude) {
+            userPrompt += `\n\n**Additional Instructions:**
+            - Include the following details in every section of the blog post: "${config.detailsToInclude}".
+            - Ensure the details are integrated naturally and contextually.`;
+        }
+
+        // Add word count requirement
+        userPrompt += `\n- Required word count: ${config.tokenConfig.minTokens}-${config.tokenConfig.maxTokens} words.`;
+
+        return {userPrompt, keywordPresent: keywords.length > 0 ? true : false}
     }
 
-    static buildBlogContentPrompts(article: IBlogContentInput): { systemPrompt: string; userPrompt: string } {
-        const keywords = Array.isArray(article.mainKeyword)
+    //----------------------------------------------------------------------------------------------------------
+    // **this is for generate blog content
+    static buildBlogContentPrompts(article: IBlogContentInput): { systemPrompt: string; userPrompt: string, keywordPresent: boolean } {
+        const mainKeyword = Array.isArray(article.mainKeyword) 
             ? article.mainKeyword.join(', ')
             : article.mainKeyword;
+
+        let keywords = ''
+        if(article.keywords){ 
+            console.log('article.keywords', article.keywords)
+            keywords = Array.isArray(article.keywords) 
+                ? article.keywords.join(', ')
+                : article.keywords;
+        }
 
         const systemPrompt = `You are a professional blog writer. 
         Format your response in Markdown with the following structure:
@@ -47,15 +105,29 @@ export class AIPromptBuilder {
         - Format important text in **bold**
         - Use *italic* for emphasis
         - Include a table if relevant
-        - End with an FAQ section if relevant`;
+        - End with an FAQ section if relevant
+        - Add image placeholders like [IMAGE: description] only after the title and introduction
+        `;
 
-        const userPrompt = `Write a comprehensive blog post about ${keywords}. 
+        let userPrompt = `Write a comprehensive blog post about ${mainKeyword}. 
         Title: ${article.title}
-        ${article.AIPrompt ? `\nAdditional Instructions: ${article.AIPrompt}` : ''}
+        ${article.AIPrompt ? `\nAdditional Instructions: ${article.AIPrompt}` : ''}`
         
-        Ensure to naturally incorporate all these keywords in the content: ${keywords}`;
+        if (keywords) {
+            userPrompt += `\n\n**Important Instructions:**
+            - Naturally incorporate **all** the following keywords into the blog post: ${keywords}.
+            - Ensure each keyword is used in a relevant and meaningful way.
+            - Include sections or subsections for keywords that require detailed explanations.
+            - Use a mix of short-tail and long-tail keywords throughout the content.
+            - Avoid keyword stuffing; prioritize readability and natural flow.`;
+        } else {
+            userPrompt += `\n\n**Important Instructions:**
+            - Focus exclusively on the main keyword: ${mainKeyword}.
+            - Provide in-depth information, examples, and practical tips related to the main keyword.
+            - Ensure the content is engaging and well-structured.`;
+        }
 
-        return { systemPrompt, userPrompt };
+        return { systemPrompt, userPrompt, keywordPresent: keywords.length > 0 ? true : false };
     }
 
     static buildSectionEditPrompts(input: ISectionEditInput): { systemPrompt: string; userPrompt: string } {
@@ -105,5 +177,19 @@ export class AIPromptBuilder {
         return `Generate a compelling, SEO-optimized blog title for the keyword "${keywordStr}". 
         The title should be engaging, clear, and under 100 characters.
         Return only the title, without quotes or additional formatting.`;
+    }
+
+    static buildGenerateHookPrompt(hookType: string, mainKeyword: string): {systemPrompt: string, userPrompt: string}{ 
+        const systemPrompt = `You are an expert content writer with deep knowledge in SEO and marketing.
+        Generate a compelling hook for a blog post about "${mainKeyword}".
+        The hook type is "${hookType}".
+        Ensure the hook is engaging, relevant, and captures the reader's attention.`;
+
+        
+        const userPrompt = `Generate a hook for a blog post about "${mainKeyword}".
+        The hook type is "${hookType}".
+        Ensure the hook is engaging, relevant, and captures the reader's attention.`;
+
+        return {systemPrompt, userPrompt}
     }
 } 

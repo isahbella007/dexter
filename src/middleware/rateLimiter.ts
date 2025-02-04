@@ -10,7 +10,7 @@ const singleOperationsLimiter = new RateLimiterMemory({
 
 // Bulk operations limiter
 const bulkOperationsLimiter = new RateLimiterMemory({
-    points: 2, // Number of requests
+    points: 100, // Number of requests
     duration: 300 // Per 5 minutes
 });
 

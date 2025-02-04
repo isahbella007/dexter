@@ -41,7 +41,7 @@ export class AnthropicService implements BaseAIService {
         }
     }
 
-    private async generateCompletion(prompt: string, model: string, systemPrompt?: string): Promise<string> {
+    private async generateCompletion(prompt: string, model: string, systemPrompt?: string, keywordPresent?: boolean): Promise<string> {
         if (!this.anthropic) {
             throw ErrorBuilder.badRequest('Anthropic client not initialized');
         }
@@ -115,12 +115,20 @@ export class AnthropicService implements BaseAIService {
     async regenerateBlogContent(config: RegenerationConfig): Promise<string> {
         try {
             const systemPrompt = AIPromptBuilder.buildSystemPrompt(config);
-            const userPrompt = AIPromptBuilder.buildUserPrompt(config);
-            return await this.generateCompletion(userPrompt, config.aiModel, systemPrompt);
+            const {userPrompt, keywordPresent} = AIPromptBuilder.buildUserPrompt(config);
+            return await this.generateCompletion(userPrompt, config.aiModel, systemPrompt, keywordPresent);
+
         } catch (error) {
             throw ErrorBuilder.internal("Failed to regenerate blog content");
         }
     }
+
+
+    async generateHook(hookType: string, mainKeyword: string, model: string): Promise<string> {
+        const {systemPrompt, userPrompt} = AIPromptBuilder.buildGenerateHookPrompt(hookType, mainKeyword)
+        return await this.generateCompletion(userPrompt, model, systemPrompt)
+    }
+
 
     async estimateTokens(text: string): Promise<number> {
         // Anthropic's tokenizer is not publicly available, so this is an estimation

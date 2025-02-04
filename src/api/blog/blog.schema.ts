@@ -61,3 +61,9 @@ export const getBlogPostSchema = Joi.object({
     siteId: Joi.string().optional(), 
     page: Joi.string().optional()
 })
+
+export const generateHook = Joi.object({ 
+    hookType: Joi.string().required(),
+    blogPostId: Joi.string().required(),
+    
+})

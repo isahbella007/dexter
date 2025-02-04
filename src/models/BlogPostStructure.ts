@@ -1,7 +1,17 @@
 import mongoose, { Schema } from "mongoose";
 import { IStructureSettings } from "./interfaces/BlogPostInterfaces";
 
+
+export enum HOOK_TYPE {
+    QUESTION = 'question',
+    FACT = 'fact',
+    QUOTATION = 'quotation',
+    ANECDOTE = "anecdote"
+}
+
+
 export const blogPostStructureSchema = new Schema<IStructureSettings>({
+    hookType: { type: String, enum: Object.values(HOOK_TYPE), require: false },
     includeHook: { type: Boolean, default: true },
     includeConclusion: { type: Boolean, default: true },
     includeTables: { type: Boolean, default: false },

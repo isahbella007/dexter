@@ -27,6 +27,7 @@ export interface IPostSettings {
 }
 
 export interface IStructureSettings {
+    hookType?: string
     includeHook: boolean;
     includeConclusion: boolean;
     includeTables: boolean;
@@ -129,10 +130,16 @@ export interface IBlogPost {
     performance: IPerformanceMetrics;
     platformPublications: IPlatformPublication[];
     linking: ILinkingSettings;
-    advanced: IAdvancedSettings
+    advanced: IAdvancedSettings;
+    connectToWeb: {
+        scrappedInsights: string[];
+        enhanceWithWebData: boolean;
+    }
     generationType: 'single' | 'bulk' | 'demo';
     createdAt: Date;
     updatedAt: Date;
+
+
 }
 
 export interface IGenerationBatchArticle {
@@ -163,7 +170,7 @@ export interface IBlogContentInput {
 export interface ILinkingSettings {
     internal: {
         enabled: boolean;
-        wordpressSite?: string;  // Selected WordPress site for internal linking
+        wordpressSite?: { title: string, url: string }[];  // Selected WordPress site for internal linking
         autoIndex: boolean;      // Automatically index site for relevant links
     };
     external: {

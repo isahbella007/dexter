@@ -1,4 +1,5 @@
 import { ArticleType, AiModel, ToneOfVoice, POV } from "../../models/BlogPostCoreSettings";
+import { HOOK_TYPE } from "../../models/BlogPostStructure";
 
 export const SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de'] as const;
 export type SupportedLanguage = typeof SUPPORTED_LANGUAGES[number];
@@ -122,3 +123,50 @@ export const SETTINGS_VALIDATION_RULES: Record<string, ValidationRule> = {
         errorMessage: `AI model must be one of: ${Object.values(AiModel).join(', ')}`
     }
 }; 
+
+export const STRUCTURE_VALIDATION_RULES: Record<string, ValidationRule> = {
+    hookType: {
+        validate: (value: string) => Object.values(HOOK_TYPE).includes(value as HOOK_TYPE),
+        errorMessage: `Hook type must be one of: ${Object.values(HOOK_TYPE).join(', ')}`
+    },
+    includeH3: {
+        validate: (value: any) => typeof value === 'boolean',
+        errorMessage: 'Include H3 must be a boolean.'
+    },
+    includeTables: {
+        validate: (value: any) => typeof value === 'boolean',
+        errorMessage: 'Include tables must be a boolean.'
+    },
+    includeConclusion: {
+        validate: (value: any) => typeof value === 'boolean',
+        errorMessage: 'Include conclusion must be a boolean.'
+    },
+    includeLists: {
+        validate: (value: any) => typeof value === 'boolean',
+        errorMessage: 'Include lists must be a boolean.'
+    },
+    includeItalics: {
+        validate: (value: any) => typeof value === 'boolean',
+        errorMessage: 'Include italics must be a boolean.'
+    },
+    includeQuotes: {
+        validate: (value: any) => typeof value === 'boolean',
+        errorMessage: 'Include quotes must be a boolean.'
+    },
+    includeKeyTakeaways: {
+        validate: (value: any) => typeof value === 'boolean',
+        errorMessage: 'Include key takeaways must be a boolean.'
+    },
+    includeFAQs: {
+        validate: (value: any) => typeof value === 'boolean',
+        errorMessage: 'Include FAQs must be a boolean.'
+    },
+    includeBold: {
+        validate: (value: any) => typeof value === 'boolean',
+        errorMessage: 'Include bold must be a boolean.'
+    },
+    includeBulletPoints: {
+        validate: (value: any) => typeof value === 'boolean',
+        errorMessage: 'Include bullet points must be a boolean.'
+    }
+};

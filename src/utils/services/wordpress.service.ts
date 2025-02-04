@@ -3,6 +3,8 @@ import { config } from '../../config';
 import { User } from '../../models/User';
 import { ErrorBuilder } from '../errors/ErrorBuilder';
 import crypto from 'crypto'
+import { AppError } from '../errors/AppError';
+import { ErrorType } from '../errors/errorTypes';
 
 interface WordPressTokens {
   access_token: string;
@@ -125,8 +127,11 @@ export class WordPressService {
           }
         })
       
+      
       console.log('sites saved')
-    } catch (error) {
+      return sites
+    } catch (error: any) {
+      console.log('error', error)
       throw new Error('Failed to fetch WordPress sites');
     }
   }
@@ -181,6 +186,66 @@ export class WordPressService {
       throw new Error('Failed to refresh tokens');
     }
   }
+
+  public async validateAccessToken(accessToken: string): Promise<boolean> {
+    try {
+      const response = await axios.get(
+        `${this.apiBaseUrl}/me`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        }
+      );
+
+      // If the request is successful, the token is valid
+      return response.status === 200;
+    } catch (error) {
+      // If the request fails, the token is invalid or expired
+      return false;
+    }
+  }
+
+  public async getPostUrls(userId: string, siteUrl: string, page: number) {
+    const auth = await User.findById(userId);
+    if (!auth?.oauth?.wordpress?.accessToken) {
+      throw ErrorBuilder.badRequest('WordPress authentication not found');
+    }
+  
+    try {
+      const response = await axios.get(`${siteUrl}/wp-json/wp/v2/posts`, {
+        headers: { Authorization: `Bearer ${auth.oauth.wordpress.accessToken}` },
+        params: {
+          per_page: 10, // Fetch 10 posts per page
+          page: page,
+          orderby: 'date',
+          order: 'desc',
+          status: 'publish',
+        }
+      });
+  
+      // Extract posts
+      const posts = response.data.map((post: any) => ({
+        title: post?.title?.rendered ?? 'Untitled',
+        url: post?.link ?? '#'
+      }));
+  
+      // Ensure totalPages is a valid number
+      const totalPages = response.headers['x-wp-totalpages']
+        ? parseInt(response.headers['x-wp-totalpages'], 10)
+        : 1;
+  
+      return { posts, totalPages };
+    } catch (error: any) {
+      // Handle error and log only the necessary information
+      const status = error.response?.status || 500;
+      const errorMessage = error.response
+        ? `WordPress API Error: ${status} - ${error.response.statusText}`
+        : 'Failed to fetch WordPress posts';
+      
+      console.error('Error fetching WordPress posts:', errorMessage);
+      throw new AppError(errorMessage, ErrorType.FORBIDDEN, status);
+    }
+  }
 } 
+
 
 export const wordpressService = new WordPressService()

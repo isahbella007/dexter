@@ -11,6 +11,7 @@ const blogPostRoutes = Router();
 blogPostRoutes.post('/generate-title',  rateLimitSingle, blogPostController.generateTitle)
 blogPostRoutes.post('/keyword-traffic',  rateLimitBulk, blogPostController.generateMonthlyTraffic)
 blogPostRoutes.post('/generate-single-article',  rateLimitSingle, blogPostController.generateSingleArticle)
+blogPostRoutes.post('/generate-hook', rateLimitBulk, blogPostController.generateHook)
 
 // everything below this is for the bulk post generation 
 blogPostRoutes.post('/generate-main-keywords', rateLimitBulk, blogPostController.generateMainKeywords)

@@ -6,8 +6,9 @@ import { ErrorBuilder } from "../../errors/ErrorBuilder";
 import { AIPromptBuilder } from "./AIPromptBuilder";
 
 export class OpenAIService implements BaseAIService {
-    private async generateCompletion(prompt: string, model: string, systemPrompt?: string): Promise<string> {
+    private async generateCompletion(prompt: string, model: string, systemPrompt?: string, keywordPresent?: boolean): Promise<string> {
         try {
+            console.log('the system prompt', systemPrompt)
             const messages: ChatCompletionMessageParam[] = [
                 { role: "user", content: prompt }
             ];
@@ -20,7 +21,7 @@ export class OpenAIService implements BaseAIService {
                 model: model,
                 messages,
                 temperature: 0.7,
-                max_tokens: 1000,
+                max_tokens: keywordPresent ? 2500 : 1500,
             });
 
             return completion.choices[0].message?.content || '';
@@ -57,8 +58,8 @@ export class OpenAIService implements BaseAIService {
     }
 
     async generateBlogContent(article: IBlogContentInput, model: string): Promise<string> {
-        const { systemPrompt, userPrompt } = AIPromptBuilder.buildBlogContentPrompts(article);
-        return await this.generateCompletion(userPrompt, model, systemPrompt);
+        const { systemPrompt, userPrompt, keywordPresent } = AIPromptBuilder.buildBlogContentPrompts(article);
+        return await this.generateCompletion(userPrompt, model, systemPrompt, keywordPresent);
     }
 
     async generateSectionEdit(input: ISectionEditInput, model: string): Promise<string> {
@@ -66,18 +67,28 @@ export class OpenAIService implements BaseAIService {
         return await this.generateCompletion(userPrompt, model, systemPrompt);
     }
 
+    // regenerate the blog content
     async regenerateBlogContent(config: RegenerationConfig): Promise<string> {
         try {
+            console.log('while regenerating the blog, you are using the openAIService in the aiService folder')
             const systemPrompt = AIPromptBuilder.buildSystemPrompt(config);
-            const userPrompt = AIPromptBuilder.buildUserPrompt(config);
-            return await this.generateCompletion(userPrompt, config.aiModel, systemPrompt);
+            const {userPrompt, keywordPresent} = AIPromptBuilder.buildUserPrompt(config);
+            console.log('user promptu', userPrompt)
+            return await this.generateCompletion(userPrompt, config.aiModel, systemPrompt, keywordPresent);
+
         } catch (error) {
             throw ErrorBuilder.internal("Failed to regenerate blog content");
         }
+    }
+
+    async generateHook(hookType: string, mainKeyword: string, model: string): Promise<string> {
+        const {systemPrompt, userPrompt} = AIPromptBuilder.buildGenerateHookPrompt(hookType, mainKeyword);
+        return await this.generateCompletion(userPrompt, model, systemPrompt);
     }
 
     async estimateTokens(text: string): Promise<number> {
         // OpenAI's tokenizer estimation (roughly 4 characters per token)
         return Math.ceil(text.length / 4);
     }
+
 }

@@ -7,22 +7,49 @@ import { AIServiceFactory } from "../../../utils/services/aiServices/AIServiceFa
 import { ChangeAnalysis, CompleteSettings, settingsChangeService } from "../../../utils/services/settingsChange.service";
 import { settingsValidationService } from "../../../utils/services/settingsValidation.service";
 import { subscriptionFeatureService } from "../../../utils/subscription/subscriptionService";
+import { InternalLinkingSchema } from "./blogSetting.schema";
 
 export class BlogPostSettingsService {
     analyzeSettingsChange(
         originalSettings: CompleteSettings,
         newSettings: Partial<CompleteSettings>
     ): ChangeAnalysis {
+
+        // console.log('the user is trying to update =>', newSettings)
         // Validate new settings if provided
         if (newSettings.settings) {
             settingsValidationService.validateSettings(newSettings.settings);
         }
 
+        if(newSettings.detailsToInclude){
+            settingsValidationService.validateDetailsToInclude(newSettings.detailsToInclude)
+        }
+
+        if(newSettings.extraKeywords){ 
+            newSettings.extraKeywords = settingsValidationService.validateKeywords(newSettings.extraKeywords)
+        }
+
+        if(newSettings.structure){
+            settingsValidationService.validateStructureSettings(newSettings.structure)
+        }
+
+        if(newSettings.internalLinks){ 
+            settingsValidationService.validateInternalLinks(newSettings.internalLinks)
+        }
+
+        // TODO:: come back to validating the connectToWeb
+        // if(newSettings.connectToWeb?.enhanceWithWebData && originalSettings.connectToWeb?.scrappedInsights !== newSettings.connectToWeb?.scrappedInsights){
+        //     settingsValidationService.validateConnectToWeb(newSettings.connectToWeb, newSettings.extraKeywords, originalSettings.extraKeywords)
+            
+        // }
         // Detect changes using the new service
+
+
         const changes = settingsChangeService.detectChanges(
             originalSettings,
             newSettings
         );
+
 
         // Analyze impact using the new service
         return settingsChangeService.analyzeImpact(
@@ -37,7 +64,7 @@ export class BlogPostSettingsService {
         analysisCheck: Partial<CompleteSettings>
     ) {
         const blogPost = await BlogPost.findOne({ _id: blogPostId, userId });
-        const aiService = AIServiceFactory.createService(analysisCheck.settings?.aiModel as AiModel || AiModel.GPT_3_5, analysisCheck.settings?.customAPIKey || '');
+        // const aiService = AIServiceFactory.createService(analysisCheck.settings?.aiModel as AiModel || AiModel.GPT_3_5, analysisCheck.settings?.customAPIKey || '');
         if (!blogPost) {
             throw ErrorBuilder.notFound('Blog post does not belong to the user');
         }
@@ -46,56 +73,112 @@ export class BlogPostSettingsService {
             {
                 settings: blogPost.settings,
                 mediaSettings: blogPost.mediaSettings,
-                structure: blogPost.structure
+                structure: blogPost.structure, 
+                detailsToInclude: '', 
+                extraKeywords: blogPost.keywords,
+                internalLinks: blogPost.linking.internal.wordpressSite,
+                connectToWeb: blogPost.connectToWeb
             },
             analysisCheck
+
+
         );
 
-        if (analysis.changeType === 'full') {
-            // get user subscription plan
-            const userTier = await subscriptionFeatureService.getUserPlan(userId);
 
-            // if it is full, it means they want to change the content of the post
+        // console.log('analysis', analysis)
+        
+        if (analysis.requiresRegeneration) {
+            const aiService = AIServiceFactory.createService(
+                analysisCheck.settings?.aiModel as AiModel || AiModel.GPT_3_5,
+                analysisCheck.settings?.customAPIKey || ''
+            );
+        
+            const userTier = await subscriptionFeatureService.getUserPlan(userId);
+        
+            // Prepare config for regeneration
             const config = {
                 language: analysisCheck.settings?.language || 'en',
                 articleSize: analysisCheck.settings?.articleSize || ArticleType.MEDIUM,
                 toneOfVoice: analysisCheck.settings?.toneOfVoice || ToneOfVoice.FRIENDLY,
                 pointOfView: analysisCheck.settings?.pointOfView || POV.FIRST,
+                aiModel: analysisCheck.settings?.aiModel || AiModel.GPT_3_5,
+                customAPIKey: analysisCheck.settings?.customAPIKey || '',
+                detailsToInclude: analysisCheck.detailsToInclude || '', // Include detailsToInclude
+                extraKeywords: analysisCheck.extraKeywords || blogPost.keywords, 
+                structure: analysisCheck.structure || blogPost.structure,
+                internalLinks: analysisCheck.internalLinks || blogPost.linking.internal.wordpressSite
             };
+        
 
+            // Determine AI model and API key
             let aiModel;
-            let customAPIKey: string | undefined;
-
+            let customAPIKey: string | undefined = config.customAPIKey;
+        
             if (analysisCheck.settings?.aiModel && analysisCheck.settings.customAPIKey) {
-                // Note: API key validation will be implemented per provider later
-                aiModel = analysisCheck.settings.aiModel;
-                customAPIKey = analysisCheck.settings.customAPIKey;
-            } else {
-                aiModel = await subscriptionFeatureService.getAIModel(userId);
+                    // Note: API key validation will be implemented per provider later
+                    aiModel = analysisCheck.settings.aiModel;
+                    customAPIKey = analysisCheck.settings.customAPIKey;
+                } 
+                else {
+                    aiModel = await subscriptionFeatureService.getAIModel(userId);
             }
-
-            // calculate token requirements with buffer
+            
+            // Calculate token requirements with buffer
             const tokenConfig = this.calculateTokenRequirements(config.articleSize, aiModel);
-
+        
+            // Validate large article size
             if (config.articleSize === ArticleType.LARGE && !customAPIKey && userTier !== SubscriptionType.PRO) {
                 throw ErrorBuilder.badRequest("Large articles are only available for pro users and people who provide their API keys");
             }
-
+        
+            // Prepare data for regeneration
             const data = {
                 ...config,
                 aiModel,
                 customAPIKey,
                 tokenConfig,
                 mainKeyword: blogPost.mainKeyword,
+                keywords: config.extraKeywords,
                 title: blogPost.title,
+                detailsToInclude: config.detailsToInclude ,// Pass detailsToInclude
+                structure: config.structure
             };
+        
+            // Regenerate the blog content
+            // const regeneratedContent = await aiService.regenerateBlogContent(data);
+        
+            // Update the blog post with the new settings and content
+            // await BlogPost.updateOne(
+            //     { _id: blogPostId },
+            //     {
+            //         $set: {
+            //             'settings.language': config.language,
+            //             'settings.articleSize': config.articleSize,
+            //             'settings.toneOfVoice': config.toneOfVoice,
+            //             'settings.pointOfView': config.pointOfView,
+            //             'settings.aiModel': aiModel,
+            //             'settings.customAPIKey': customAPIKey,
+            //             // 'detailsToInclude': config.detailsToInclude, // Update detailsToInclude
+            //             'content': regeneratedContent, // Update content
+            //             'keywords': config.extraKeywords,
+            //             'structure': config.structure,
+            //             'linking.internal': {
+            //                 enabled: config.internalLinks && config.internalLinks.length > 0,
+            //                 wordpressSite: config.internalLinks,
+            //                 autoIndex: true
+            //             }
+            //         }
+            //     }
+            // );
 
-            // Regenerate content with new configuration
-            return await aiService.regenerateBlogContent(data);
 
+
+        
+            return 'done';
         }
 
         return analysis;
+
     }
 
     private calculateTokenRequirements(articleSize: ArticleType, aiModel: string) {

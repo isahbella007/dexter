@@ -8,7 +8,8 @@ export async function getBlogImage(query: string): Promise<string> {
     try {
         const response = await axios.get(url);
         if (response.data.results.length > 0) {
-            return response.data.results[0].urls.regular; // Use the first result
+            console.log('image url found =>', response.data.results)
+            return response.data.results[0].urls.small; // Use the first result
         }
     } catch (error) {
         console.error('Error fetching image:', error);

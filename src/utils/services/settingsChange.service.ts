@@ -23,7 +23,17 @@ export interface CompleteSettings {
     settings?: IPostSettings;
     mediaSettings?: IMediaSettings;
     structure?: IStructureSettings;
+    detailsToInclude?: string;
+    extraKeywords?: string[]
+    internalLinks?: { title: string, url: string }[],
+    connectToWeb?: {
+        enhanceWithWebData?: boolean,
+        scrappedInsights?: string[]
+    }
+
 }
+
+
 
 export class SettingsChangeService {
     private readonly fullRegenerationFields = [
@@ -50,10 +60,14 @@ export class SettingsChangeService {
     detectChanges(oldSettings: CompleteSettings, newSettings: Partial<CompleteSettings>): SettingsChange[] {
         const changes: SettingsChange[] = [];
 
+
+        // console.log('settingsChangeService -> oldSettings', oldSettings)
+        // console.log('settingsChangeService -> newSettings', newSettings)
         // Validate core settings if provided
         if (newSettings.settings) {
             settingsValidationService.validateSettings(newSettings.settings);
         }
+
 
         // Helper function to detect changes in nested objects
         const detectNestedChanges = (
@@ -82,6 +96,60 @@ export class SettingsChangeService {
         detectNestedChanges(oldSettings.settings, newSettings.settings, 'settings');
         detectNestedChanges(oldSettings.mediaSettings, newSettings.mediaSettings, 'mediaSettings');
         detectNestedChanges(oldSettings.structure, newSettings.structure, 'structure');
+       
+        // detect changes in the details to Include
+        if(newSettings.detailsToInclude !== undefined && newSettings.detailsToInclude !== oldSettings.detailsToInclude){
+            // console.log('new settings details to include', newSettings.detailsToInclude)
+            // console.log('old settings details to include', oldSettings.detailsToInclude)
+            changes.push({ 
+                field: 'detailsToInclude',
+                from: oldSettings.detailsToInclude,
+                to: newSettings.detailsToInclude,
+                impact: 'partial'
+            })
+        }  
+   
+        // detect changes in the extra keywords
+        if(newSettings.extraKeywords !== undefined && newSettings.extraKeywords !== oldSettings.extraKeywords){
+            // console.log('new settings extra keywords', newSettings.extraKeywords)
+            // console.log('old settings extra keywords', oldSettings.extraKeywords)
+            changes.push({ 
+                field: 'extraKeywords',
+                from: oldSettings.extraKeywords,
+                to: newSettings.extraKeywords,
+                impact: 'partial'
+            })
+            
+
+        }
+
+        // detect changes in the internal links
+        if(newSettings.internalLinks !== undefined && newSettings.internalLinks !== oldSettings.internalLinks){
+            // console.log('new settings internal links', newSettings.internalLinks)
+            // console.log('old settings internal links', oldSettings.internalLinks)
+            changes.push({
+                field: 'internalLinks',
+                from: oldSettings.internalLinks,
+                to: newSettings.internalLinks,
+                impact: 'partial'
+            })
+        }
+
+        // detect changes in the connect to web
+        if(newSettings.connectToWeb !== undefined && newSettings.connectToWeb !== oldSettings.connectToWeb){
+            // console.log('new settings connect to web', newSettings.connectToWeb)
+            // console.log('old settings connect to web', oldSettings.connectToWeb)
+            changes.push({
+                field: 'connectToWeb',  
+
+                from: oldSettings.connectToWeb,
+                to: newSettings.connectToWeb,
+                impact: 'partial'
+            })
+        }
+        
+
+
 
         return changes;
     }
@@ -104,6 +172,10 @@ export class SettingsChangeService {
         const affectedSections = changes
             .filter(change => change.impact === 'partial')
             .map(change => {
+                if (change.field === 'connectToWeb') return 'all sections'; // Mark as affecting all sections
+                if (change.field === 'internalLinks') return 'all sections'; // Mark as affecting all sections
+                if (change.field === 'extraKeywords') return 'all sections'; // Mark as affecting all sections
+                if (change.field === 'detailsToInclude') return 'all sections'; // Mark as affecting all sections
                 if (change.field.includes('hook')) return 'introduction';
                 if (change.field.includes('conclusion')) return 'conclusion';
                 return change.field.split('.').pop() || '';

@@ -6,10 +6,14 @@ import { ILinkingSettings } from "./interfaces/BlogPostInterfaces";
 export const blogPostLinkingSchema = new Schema<ILinkingSettings>({
     internal: {
         enabled: { type: Boolean, default: false },
-        wordpressSite: { type: String },
+        wordpressSite: [
+            { title: String, url: String }
+        ],
         autoIndex: { type: Boolean, default: true }
+
     },
     external: {
+
         enabled: { type: Boolean, default: false },
         linkType: { type: String },
         manualLinks: [{ type: String }],
