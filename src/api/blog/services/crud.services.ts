@@ -1,4 +1,5 @@
 import { BlogPost, PUBLISH_STATUS, SYSTEM_PLATFORM } from "../../../models/BlogPost";
+import { AiModel } from "../../../models/BlogPostCoreSettings";
 import { GenerationBatch } from "../../../models/GenerationBatch";
 import { IBlogPost, IPostMetrics } from "../../../models/interfaces/BlogPostInterfaces";
 import { User } from "../../../models/User";
@@ -7,7 +8,7 @@ import { ErrorBuilder } from "../../../utils/errors/ErrorBuilder";
 import { ErrorType } from "../../../utils/errors/errorTypes";
 import { mainKeywordFormatter } from "../../../utils/helpers/formatter";
 import { GoogleAnalyticsService } from "../../../utils/services/googleAnalytics.service";
-import { openAIService } from "../../../utils/services/openAIService";
+import { AIServiceFactory } from "../../../utils/services/aiServices/AIServiceFactory";
 import { platformManagementService } from "../../../utils/services/platformManagement.service";
 import { subscriptionFeatureService } from "../../../utils/subscription/subscriptionService";
 import { blogPostService } from "../blog.service";
@@ -17,11 +18,11 @@ interface ISectionEditRequest {
     AIPrompt: string;           // Their instructions for changing this text
 }
 
-export class BlogPostCrudService { 
+export class BlogPostCrudService {
 
-    async getBlogPost(userId: string, platform?: string, siteId?: string,  batchId?:string){ 
+    async getBlogPost(userId: string, platform?: string, siteId?: string, batchId?: string) {
         let blogPost;
-         // Validate platform if provided
+        // Validate platform if provided
         if (platform && !Object.values(SYSTEM_PLATFORM).includes(platform as SYSTEM_PLATFORM)) {
             throw ErrorBuilder.badRequest(
                 `Invalid platform.`
@@ -31,15 +32,15 @@ export class BlogPostCrudService {
         if (batchId) { 
             console.log('batchId', batchId)
             const batch = await GenerationBatch.findById(batchId);
-            if (!batch) { 
+            if (!batch) {
                 throw ErrorBuilder.notFound("Batch not found");
             }
-            if (batch.status === 'processing') { 
-                return { 
-                    blogPost, 
-                    metrics: { 
-                        totalArticles: batch.totalArticles, 
-                        completedArticles: batch.completedArticles, 
+            if (batch.status === 'processing') {
+                return {
+                    blogPost,
+                    metrics: {
+                        totalArticles: batch.totalArticles,
+                        completedArticles: batch.completedArticles,
                         progress: (batch.completedArticles / batch.totalArticles) * 100
                     }
                 };
@@ -52,16 +53,16 @@ export class BlogPostCrudService {
         // Handle different query scenarios
         if (platform && siteId) {
             // Both platform and site provided
-            blogPost = await BlogPost.find({ 
+            blogPost = await BlogPost.find({
                 userId,
-                'platformPublications.platform': platform, 
-                'platformPublications.publishedSiteId': siteId 
+                'platformPublications.platform': platform,
+                'platformPublications.publishedSiteId': siteId
             });
         } else if (platform) {
             // Only platform provided
             blogPost = await BlogPost.find({
                 userId,
-                'platformPublications.platform': platform 
+                'platformPublications.platform': platform
             });
         } else {
             // No filters, return all user's posts
@@ -161,34 +162,34 @@ export class BlogPostCrudService {
         return blogPost
     }
 
-    async updateBlogPost(userId:string, blogPostId: string, data: Partial<IBlogPost>){ 
+    async updateBlogPost(userId: string, blogPostId: string, data: Partial<IBlogPost>) {
         //update the content of the post and then recalculate the metadata 
         // !!TODO: work on the SEO analysis after the content is edited 
-        const blogPost = await BlogPost.findOne({_id: blogPostId, userId})
-        if(!blogPost){ 
+        const blogPost = await BlogPost.findOne({ _id: blogPostId, userId })
+        if (!blogPost) {
             throw ErrorBuilder.notFound("Blog post not found");
         }
         const mainKeyword = Array.isArray(blogPost.mainKeyword) ? blogPost.mainKeyword[0] : blogPost.mainKeyword
         const title = blogPost.title
         blogPost.content = data.content as unknown as string
         blogPost.structure = blogPostService.detectStructureFeatures(data.content as unknown as string)
-        blogPost.metadata = blogPostService.calculateMetaData(data.content as unknown as string, {mainKeyword, title})
+        blogPost.metadata = blogPostService.calculateMetaData(data.content as unknown as string, { mainKeyword, title })
         await blogPost.save()
         return blogPost
     }
 
-    async deleteBlogPost(userId: string, blogPostId: string){ 
+    async deleteBlogPost(userId: string, blogPostId: string) {
         const blogPost = await BlogPost.findOne({ _id: blogPostId, userId })
-        if(!blogPost){ 
+        if (!blogPost) {
             throw ErrorBuilder.notFound("Blog post not found");
         }
         // delete the blog post 
-        await blogPost.deleteOne({_id: blogPostId})
+        await blogPost.deleteOne({ _id: blogPostId })
     }
 
-    async editBlogPostSection(userId: string, blogPostId: string, data: ISectionEditRequest){ 
-        const blogPost = await BlogPost.findOne({_id: blogPostId, userId})
-        if(!blogPost){ 
+    async editBlogPostSection(userId: string, blogPostId: string, data: ISectionEditRequest) {
+        const blogPost = await BlogPost.findOne({ _id: blogPostId, userId })
+        if (!blogPost) {
             throw ErrorBuilder.notFound("Blog post not found");
         }
 
@@ -203,7 +204,7 @@ export class BlogPostCrudService {
 
         const surroundingContext = {
             previousText: blogPost.content.substring(
-                Math.max(0, selectedIndex - contextWindow), 
+                Math.max(0, selectedIndex - contextWindow),
                 selectedIndex
             ),
             nextText: blogPost.content.substring(
@@ -212,9 +213,11 @@ export class BlogPostCrudService {
             )
         };
         const aiModel = await subscriptionFeatureService.getAIModel(userId);
+        const aiService = AIServiceFactory.createService(aiModel as AiModel);
+
 
         // Generate new content for the selected text
-        const newContent = await openAIService.generateSectionEdit({
+        const newContent = await aiService.generateSectionEdit({
             selectedText: data.selectedText,
             AIPrompt: data.AIPrompt,
             surroundingContext,
@@ -224,13 +227,13 @@ export class BlogPostCrudService {
 
         // // Replace the old text with the new content
         const updatedContent = blogPost.content.replace(data.selectedText, newContent);
-        
+
         blogPost.content = updatedContent;
-        blogPost.metadata = blogPostService.calculateMetaData(blogPost.content, {mainKeyword: mainKeywordFormatter(blogPost.mainKeyword), title: blogPost.title})
+        blogPost.metadata = blogPostService.calculateMetaData(blogPost.content, { mainKeyword: mainKeywordFormatter(blogPost.mainKeyword), title: blogPost.title })
         blogPost.structure = blogPostService.detectStructureFeatures(blogPost.content)
         await blogPost.save();
 
-        return {surroundingContext, newContent, blogPost}
+        return { surroundingContext, newContent, blogPost }
     }
 }
 
