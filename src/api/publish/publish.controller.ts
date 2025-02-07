@@ -9,6 +9,7 @@ import { SYSTEM_PLATFORM } from "../../models/BlogPost";
 import { schedulePostSchema } from "./publishSchema";
 import { schedulePublishService } from "./services/schedule.publish.service";
 import { shopifyPublishService } from "./services/shopify.publish.service";
+import { wixPublishService } from "./services/wix.publish.service";
 
 export const publishController = {
     schedulePost: asyncHandler(async (req: Request, res: Response) => {
@@ -44,7 +45,7 @@ export const publishController = {
 
         const result = await wordpressPublishService.publishBlogPost(userId._id, siteId, blogPostId)
         if(result.success) {
-            ResponseFormatter.success(res, result.publishedUrl.short_URL, 'Blog post published successfully')
+            ResponseFormatter.success(res, result.publishedUrl.short_URL, 'Blog post published on wordpress successfully')
         } else {
             ResponseFormatter.error(res, ErrorBuilder.badRequest('Failed to publish blog post'))
         }
@@ -57,7 +58,19 @@ export const publishController = {
 
         const result = await shopifyPublishService.publishBlogPost(userId._id, shopifyId, blogPostId)
         
-        ResponseFormatter.success(res, result.publishedUrl, 'Blog post published successfully')
+        ResponseFormatter.success(res, result.publishedUrl, 'Blog post published on shopify successfully')
         
+    }), 
+
+    publishWixPost: asyncHandler(async(req:Request, res:Response) => { 
+        const userId = req?.user as IUser
+        const blogPostId = req?.query?.blogPostId as string
+        const {siteId} = req.body
+        
+        if(!blogPostId || !siteId) throw ErrorBuilder.badRequest('Blog post id and site id are required')
+
+        const result = await wixPublishService.publishPost(userId._id, blogPostId, siteId)
+        ResponseFormatter.success(res, result, 'Blog post published on wix successfully')
     })
 }
+

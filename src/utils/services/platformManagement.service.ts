@@ -5,10 +5,7 @@ import { ErrorBuilder } from "../errors/ErrorBuilder"
 export class PlatformManagementService { 
 
     async saveGA4TrackingCode(userId: string, code: string, siteId?:string, platform?:string) { 
-        // check that code must start with G-
-        if(!code.startsWith('G-')) { 
-            throw ErrorBuilder.badRequest('Invalid code')
-        }
+       
         const user:IUser | null = await User.findById(userId)
         if(!user) { 
             throw ErrorBuilder.notFound('User not found')
@@ -23,12 +20,16 @@ export class PlatformManagementService {
                 throw ErrorBuilder.badRequest('Site id is required')
             }
             const site = user?.platforms?.wordpress?.sites?.find(
-                (site: { siteId: number }) => site.siteId === Number(siteId)
+                (site: { siteId: number }) => site.siteId == Number(siteId)
               );
               if (!site) {
                 throw ErrorBuilder.badRequest('WordPress site not found');
             } 
-            await User.findByIdAndUpdate(userId, { $set: { 'platforms.wordpress.sites.$.ga4TrackingCode': code } })
+            // Update the specific site's ga4TrackingCode
+            await User.updateOne(
+                { _id: userId, 'platforms.wordpress.sites.siteId': Number(siteId) },
+                { $set: { 'platforms.wordpress.sites.$.ga4TrackingCode': code } }
+            );
         }
     }
 

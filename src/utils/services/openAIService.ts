@@ -278,126 +278,56 @@ export class OpenAIService {
     }
 
 
-    async analyzeSEO(seoData: any): Promise<SEOAnalysis> {
-        try{
-            const format = {
-                name: 'SEO_Analysis',
-                metaTitle: {
-                    current: '',
-                    recommendations: []
-                },
-                metaDescription: {
-                    current: '',
-                    recommendations: []
-                },
-                internalLinks: {
-                    current: 0,
-                    recommendations: []
-                },
-                missingAltTags: {
-                    current: 0,
-                    recommendations: []
-                }
-            }
-            const systemPrompt = `You are an AI SEO expert with 10+ years of experience. Analyze the following SEO elements:
-                1. Meta Title: Check length (50-60 chars), keyword placement, and clarity
-                2. Meta Description: Check length (150-160 chars), keyword inclusion, and engagement
-                3. Internal Links: Assess quantity and relevance
-                4. Alt Tags: Verify presence and descriptiveness
-                5. Provide specific, actionable recommendations for improvement. Use SEO best practices and focus on measurable outcomes.
-                6. Return the results in a structured JSON format`;
+    async analyzeSEO(metricCounts: Map<string, number>, model: string = 'gpt-4') {
+        // Convert the metricCounts map to a readable string
+        const metricsObject = Object.fromEntries(metricCounts)
+        const metrics = Object.entries(metricsObject)
+            .map(([metric, count]) => `${metric}: ${count} pages`)
+            .join('\n');
+
     
-    
-        
-            const response = await openai.chat.completions.create({
-                model: "gpt-4o-mini", // Use the correct model name
-                messages: [
-                    {
-                        role: "system",
-                        content: systemPrompt
-                    },
-                    {
-                        role: "user",
-                        content: `Analyze this SEO data: 
-                        - Meta Title: ${seoData.metaTitle}
-                        - Meta Description: ${seoData.metaDescription}
-                        - Internal Links: ${seoData.internalLinksCount}
-                        - Images Missing Alt: ${seoData.imagesMissingAlt}.
-                        Parse the data and return the results in the following JSON format ${format}:
-                        `
-                    }
-                ],
-    
-                response_format: {
-                    type: "json_schema",
-                    json_schema: {
-                        name: "SEO_Analysis",
-                        schema: {
-                            type: "object",
-                            properties: {
-                                metaTitle: {
-                                    type: "object",
-                                    properties: {
-                                        current: { type: "string" },
-                                        recommendations: {
-                                            type: "array",
-                                            items: { type: "string" }
-                                        }
-                                    },
-                                    required: ["current", "recommendations"]
-                                },
-                                metaDescription: {
-                                    type: "object",
-                                    properties: {
-                                        current: { type: "string" },
-                                        recommendations: {
-                                            type: "array",
-                                            items: { type: "string" }
-                                        }
-                                    },
-                                    required: ["current", "recommendations"]
-                                },
-                                internalLinks: {
-                                    type: "object",
-                                    properties: {
-                                        current: { type: "number" },
-                                        recommendations: {
-                                            type: "array",
-                                            items: { type: "string" }
-                                        }
-                                    },
-                                    required: ["current", "recommendations"]
-                                },
-                                missingAltTags: {
-                                    type: "object",
-                                    properties: {
-                                        current: { type: "number" },
-                                        recommendations: {
-                                            type: "array",
-                                            items: { type: "string" }
-                                        }
-                                    },
-                                    required: ["current", "recommendations"]
-                                }
-                            },
-                            required: ["metaTitle", "metaDescription", "internalLinks", "missingAltTags"],
-                            additionalProperties: false
-                        }
-                    }
-                    
-                },
-                temperature: 0.7
-            });
-        
-            console.log('response', JSON.stringify(response.choices[0].message.content, null, 2))
-            // Parse the JSON response
-            const analysis = JSON.parse(response.choices[0].message.content || '{}');
-            return analysis;
-        }catch(error){
-            throw new AppError('Failed to analyze SEO data', ErrorType.UNKNOWN, 500);
+            console.log('the metric we are working with ', metrics)
+        // System prompt: Define the role and formatting rules
+        const systemPrompt = `You are an SEO expert analyzing a website's critical SEO issues. 
+        Provide detailed recommendations to fix these issues. Format the response as a JSON array, where each item is an object with the following structure:
+        {
+            "issue": "The SEO issue (e.g., 'Missing Alt Text')",
+            "description": "A brief description of the issue and its impact on SEO",
+            "recommendation": "A specific action to fix the issue"
         }
-        
-    };
+    
+        IMPORTANT:
+        1. Be concise and actionable in your recommendations.
+        2. Focus on practical steps that can be implemented quickly.
+        3. Use professional language suitable for a non-technical audience.`;
+    
+        // User prompt: Provide the metrics and request recommendations
+        const userPrompt = `The following SEO issues were found across the site:
+        ${metrics}
+    
+        Provide detailed recommendations to fix these issues. Format the response as a JSON array.`;
+    
+        // Call OpenAI API
+        const response = await openai.chat.completions.create({
+            model,
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt }
+            ],
+            temperature: 0.7,
+            max_tokens: 500
+        });
+    
+        // Parse the response into JSON
+        try {
+            console.log('From open AI recommendations', response.choices[0].message?.content)
+            const recommendations = JSON.parse(response.choices[0].message?.content || '[]');
+            return recommendations;
+        } catch (error) {
+            console.error('Failed to parse OpenAI response:', error);
+            return [];
+        }
+    }
 }
 
 export const openAIService = new OpenAIService();

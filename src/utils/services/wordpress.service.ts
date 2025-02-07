@@ -162,15 +162,17 @@ export class WordPressService {
           `${this.apiBaseUrl}/sites/${siteId}/posts/new`,
           postData,
           {
-            headers: { Authorization: `Bearer ${auth.oauth.wordpress.accessToken}` }
+            headers: { Authorization: `Bearer ${auth.oauth.wordpress.accessToken}` },
           }
         );
   
         return response.data;
-    } catch (error) {
-        throw new Error('Failed to create WordPress post');
+    } catch (error: any) {
+      console.log('failed to post to wordpress', error)
+        throw new AppError(error.data.message, ErrorType.INTERNAL, error.status)
     }
   }
+
 
   private async refreshTokens(userId: string, refreshToken: string): Promise<void> {
     try {

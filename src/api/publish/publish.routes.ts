@@ -8,4 +8,5 @@ publishRoutes.post('/wordpress/refresh-sites', publishController.refreshWordPres
 publishRoutes.post('/wordpress', publishController.publishBlogPost)
 
 publishRoutes.post('/shopify', publishController.publishShopifyPost)
+publishRoutes.post('/wix', publishController.publishWixPost)
 export default publishRoutes

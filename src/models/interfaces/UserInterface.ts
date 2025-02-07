@@ -52,8 +52,10 @@ export interface IUser extends Document{
     }
     platforms?:{
       wordpress?: IWordPressPlatform
+      wix?: IWixPlatform
     } 
     comparePassword(password:string): Promise<boolean>
+
 }
 
 export interface IUserSettings extends Document {
@@ -79,10 +81,26 @@ export interface IWordPressPlatform {
   sites: IWordPressSite[];
 }
 
+export interface IWixSite {
+  siteId: string;
+  name: string;
+  url: string;
+  ga4TrackingCode: string | null;
+  siteAccessToken: string;
+  siteInstanceId: string;
+  ownerMemberId: string | null;
+}
+
+
+export interface IWixPlatform {
+  sites: IWixSite[];
+}
+
 export interface IWixAuthSession {
   codeVerifier: string;
   codeChallenge: string;
   state: string;
   timestamp: Date;
   expiresAt: Date;
+
 }

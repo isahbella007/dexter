@@ -1,69 +1,62 @@
 import mongoose, { Schema, model } from 'mongoose';
 
-export interface IAnalytics {
-    _id: string;
-    userId: mongoose.Schema.Types.ObjectId | string;
-    seoScores: {
-        totalKeywordsScore: number;
-        metaTagStatusScore: number;
-        topPagesScore: number;
-        pageVisitsScore: number;
-        averageVisitDurationScore: number;
-        bounceRateScore: number;
+interface IAnalyticsData {
+    pageVisitsScore: {
+        organic: number;
+        total: number;
     };
-    visibilityScore: number;
-    keywordAnalysis: {
-        totalKeywords: number;
-        keywordPositions: Map<string, number>;
-        historicalData: [{
-            date: Date;
-            keywordCount: number;
-            averagePosition: number;
-        }];
+    avgDurationScore: {
+        organic: number;
+        total: number;
     };
-    engagement: {
-        pageVisits: number;
-        averageVisitDuration: number;
-        bounceRate: number;
-        exitPages: string[];
+    bounceRateScore: {
+        organic: number;
+        total: number;
     };
-    lastUpdated: Date;
-    createdAt: Date;
-    updatedAt: Date;
+    topPagesScore: {
+        organic: number;
+        total: number;
+    };
+    megaTagStatusScore: {
+        withMetaTags: number;
+        totalUrl: number;
+    };
+    totalKeywords: {
+        organic: number;
+        total: number;
+    };
+    siteUrl: string; // To associate the data with a specific site
+    userId: string; // To associate the data with a specific user
 }
 
-const analyticsSchema = new Schema<IAnalytics>({
-    // TODO:: add platform here instead 
-    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    seoScores: {
-        totalKeywordsScore: { type: Number, default: 0 },
-        metaTagStatusScore: { type: Number, default: 0 },
-        topPagesScore: { type: Number, default: 0 },
-        pageVisitsScore: { type: Number, default: 0 },
-        averageVisitDurationScore: { type: Number, default: 0 },
-        bounceRateScore: { type: Number, default: 0 }
-    },
-    visibilityScore: { type: Number, default: 0 },
-    keywordAnalysis: {
-        totalKeywords: { type: Number, default: 0 },
-        keywordPositions: { 
-            type: Map,
-            of: Number,
-            default: new Map()
-        },
-        historicalData: [{
-            date: { type: Date },
-            keywordCount: { type: Number },
-            averagePosition: { type: Number }
-        }]
-    },
-    engagement: {
-        pageVisits: { type: Number, default: 0 },
-        averageVisitDuration: { type: Number, default: 0 },
-        bounceRate: { type: Number, default: 0 },
-        exitPages: [{ type: String }]
-    },
-    lastUpdated: { type: Date, default: Date.now }
-}, { timestamps: true });
 
-export const Analytics = model<IAnalytics>('Analytics', analyticsSchema);
+const analyticsSchema = new Schema({
+    pageVisitsScore: {
+        organic: { type: Number, default: 0 },
+        total: { type: Number, default: 0 }
+    },
+    avgDurationScore: {
+        organic: { type: Number, default: 0 },
+        total: { type: Number, default: 0 }
+    },
+    bounceRateScore: {
+        organic: { type: Number, default: 0 },
+        total: { type: Number, default: 0 }
+    },
+    topPagesScore: {
+        organic: { type: Number, default: 0 },
+        total: { type: Number, default: 0 }
+    },
+    megaTagStatusScore: {
+        withMetaTags: { type: Number, default: 0 },
+        totalUrl: { type: Number, default: 0 }
+    },
+    totalKeywords: {
+        organic: { type: Number, default: 0 },
+        total: { type: Number, default: 0 }
+    },
+    siteUrl: { type: String, required: true },
+    userId: { type: String, required: true }
+}, {timestamps: true})
+
+export const AnalyticsModel = model('Analytics', analyticsSchema);

@@ -232,32 +232,46 @@ export const authController = {
         ResponseFormatter.success(res, {}, 'Wordpress auth callback handled successfully')
     }), 
 
-    initiateWixOAuth: asyncHandler(async(req:Request, res:Response) => { 
+    initiateWixAppInstallation: asyncHandler(async(req:Request, res:Response) => { 
         const userId = req.user as IUser
-        const authUrl = await wixService.getAuthorizationUrl(userId._id)
-        console.log('the auth url =>', authUrl.redirectSession.fullUrl)
-        ResponseFormatter.success(res, {redirectUrl: authUrl.redirectSession.fullUrl}, 'Wix auth url generated')
+        const authUrl = await wixService.getInstallationUrl(userId._id)
+        console.log('the auth url =>', authUrl)
+        ResponseFormatter.success(res, {redirectUrl: authUrl}, 'Wix auth url generated')
+    }), 
+
+    handleFirstCallBack: asyncHandler(async(req:Request, res:Response) => { 
+        console.log('you are getting to the first callback', req.query)
+        // const userId = req.user as IUser
+        const token = req.query.token as string
+        const state = req.query.state as string
+
+        console.log('state =>', state)
+        if(!token) throw ErrorBuilder.badRequest('Token is required')
+
+        const authUrl = await wixService.getAuthorizationUrl(token)
+        console.log('the auth url =>', authUrl)
+        // res.redirect(authUrl)
+        ResponseFormatter.success(res, {redirectUrl: authUrl}, 'Wix auth url generated')
         
+
     }), 
 
     handleWixCallback: asyncHandler(async(req:Request, res:Response) => { 
         console.log('you are getting to the wix callback', req.query)
-        const {code, state} = req.query
+        const {code, state, instanceId} = req.query
 
-        if(!code || !state) throw ErrorBuilder.badRequest('Code and state are required')
+        if(!code) throw ErrorBuilder.badRequest('Code is required')
+        if(!instanceId) throw ErrorBuilder.badRequest('Instance id is required')
+        if(!state) throw ErrorBuilder.badRequest('State is required')
 
-        await wixService.handleAuthCallback(code as string, state as string)
+        
+
+
+        await wixService.handleAuthCallback(code as string, instanceId as string, state as string)
 
         // TODO:: discuss where to take them back to on the frontend but for now 
-        ResponseFormatter.success(res, {}, 'Wix auth callback handled successfully')
-    }), 
-
-    // get the wix member if this makes any damn sense 
-    getWixMember: asyncHandler(async(req:Request, res:Response) =>{
-        const userId = req.user as IUser
-        await wixService.getMember(userId._id )
-        ResponseFormatter.success(res, {}, 'Wix member fetched successfully')
-    }), 
+        ResponseFormatter.success(res, {code, instanceId}, 'Wix auth callback handled successfully')
+    }),  
 
     //** */ google oauth
     initiateGoogleOAuth: asyncHandler(async(req:Request, res:Response) => { 

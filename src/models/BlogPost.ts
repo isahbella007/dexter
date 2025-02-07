@@ -89,7 +89,7 @@ const blogPostSchema = new Schema<IBlogPost>({
             enum: Object.values(PUBLISH_STATUS),
             default: PUBLISH_STATUS.pending
         },
-        publishedSiteId: {type: Number},
+        publishedSiteId: {type: mongoose.Schema.Types.Mixed},
         publishedUrl: { type: String },
         publishedSlug: { type: String },
         publishedAt: { type: Date },

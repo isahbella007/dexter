@@ -36,8 +36,8 @@ export class GoogleAnalyticsService {
             version: 'v1',
             auth: this.oAuth2Client
         });
+        
     }
-
     // get all the user's google analytics accounts
     async fetchUserAccounts() {
         const response = await this.analyticsAdmin.accounts.list({
@@ -374,53 +374,238 @@ export class GoogleAnalyticsService {
         }
     }
 
-    async fetchMetricsForUrls(urls: string[], ga4PropertyId: string) {
+    // async fetchMetricsForUrls(siteUrl: string, ga4PropertyId: string) {
+    //     try {
+    //         console.log('In the fetchMetricsForUrls function', siteUrl);
+    //         const allPages = await this.getAllPagesFromSite(siteUrl);
+    //         if (!allPages || allPages.length === 0) {
+    //             throw ErrorBuilder.badRequest('No pages found for the site');
+    //         }
+
+    //         const urls = allPages
+    //         console.log("urls is", urls)
+    //         // Get available metrics from GA4
+
+    //         const [pageViews, avgDuration, bounceRate] = await Promise.all([
+    //             this.getGA4Metric('screenPageViews', urls as unknown as string[], ga4PropertyId),
+    //             this.getGA4Metric('averageSessionDuration', urls as unknown as string[], ga4PropertyId),
+    //             this.getGA4Metric('bounceRate', urls as unknown as string[], ga4PropertyId)
+    //         ]);
+
+
+    //         console.log('pageViews is', pageViews);
+    //         const [organicPageViews, organicAvgDuration, organicBounceRate] = await Promise.all([
+    //             this.getOrganicGA4Metric('screenPageViews', urls as unknown as string[], ga4PropertyId),
+    //             this.getOrganicGA4Metric('averageSessionDuration', urls as unknown as string[], ga4PropertyId),
+    //             this.getOrganicGA4Metric('bounceRate', urls as unknown as string[], ga4PropertyId)
+
+    //         ]);
+    
+    //         const {withMetaTags, total} = await this.getMetaTagStatusForUrls(urls as unknown as string[]);
+            
+    //         const totalKeywords = await this.getTotalKeywords(urls as unknown as string[]);
+
+    //         return {
+    //             pageVisitsScore: { 
+    //                 organic: organicPageViews || 0,     
+    //                 total: pageViews || 0
+    //             },
+    //             avgDurationScore:{
+    //                 organic: organicAvgDuration || 0,
+    //                 total: avgDuration || 0
+    //             },
+    //             bounceRateScore: {
+    //                 organic: organicBounceRate || 0,
+    //                 total: bounceRate || 0
+    //             },
+    //             topPagesScore: {
+    //                 organic: (organicPageViews+organicAvgDuration+organicBounceRate) || 0,
+    //                 total: (pageViews+avgDuration+bounceRate) || 0
+    //             }, // Not available in GA4
+             
+    //             megaTagStatusScore: {
+    //                 withMetaTags: withMetaTags,
+    //                 totalUrl: total
+    //             }, // Not available in GA4
+
+    //             totalKeywords: {
+    //                 organic: totalKeywords || 0,
+    //                 total: totalKeywords || 0
+    //             }
+
+    //         };
+    //     } catch (error) {
+    //         console.error('Error fetching metrics:', error);
+    //         return {
+    //             pageVisitsScore: { 
+    //                 organic:  0,     
+    //                 total:  0
+    //             },
+    //             avgDurationScore:{
+    //                 organic: 0,
+    //                 total: 0
+    //             },
+
+    //             bounceRateScore: {
+    //                 organic: 0,
+    //                 total: 0
+    //             },
+
+    //             topPagesScore: {
+    //                 organic: 0,
+    //                 total: 0
+    //             }, // Not available in GA4
+             
+    //             megaTagStatusScore: {
+    //                 withMetaTags: 0,
+    //                 totalUrl: 0
+    //             }, // Not available in GA4
+
+    //         };
+    //     }
+    // }
+
+    async fetchMetricsForUrls(siteUrl: string[], ga4PropertyId: string) {
         try {
-            // Get available metrics from GA4
-            const [pageViews, avgDuration, bounceRate] = await Promise.all([
-                this.getGA4Metric('screenPageViews', urls, ga4PropertyId),
-                this.getGA4Metric('averageSessionDuration', urls, ga4PropertyId),
-                this.getGA4Metric('bounceRate', urls, ga4PropertyId)
+            // console.log('In the fetchMetricsForUrls function', siteUrl);
+
+            const urls = siteUrl
+            // const siteIssues = await this.getSiteIssues(urls as unknown as string[]);
+            // console.log("urls is", urls);
+
+
+            // Process URLs in batches
+            const batchSize = 4; // Adjust based on API rate limits
+            const delayMs = 1000; // 1 second delay between batches
+
+            const [pageViews, sessionEngagementDuration, activeUsers, bounceRate] = await Promise.all([
+                this.processInBatches(urls as unknown as string[], batchSize, delayMs, url => 
+                    this.getGA4Metric('screenPageViews', [url], ga4PropertyId)
+                ),
+                // **the sessionEngagmentDuration and sessions is to get the avgDuration
+                this.processInBatches(urls as unknown as string[], batchSize, delayMs, url => 
+
+                    this.getGA4Metric('userEngagementDuration', [url], ga4PropertyId)
+                ),
+                this.processInBatches(urls as unknown as string[], batchSize, delayMs, url => 
+
+                    this.getGA4Metric('activeUsers', [url], ga4PropertyId)
+                ),
+                this.processInBatches(urls as unknown as string[], batchSize, delayMs, url => 
+                    this.getGA4Metric('bounceRate', [url], ga4PropertyId)
+                ),
             ]);
 
-            const [organicPageViews, organicAvgDuration, organicBounceRate] = await Promise.all([
-                this.getOrganicGA4Metric('screenPageViews', urls, ga4PropertyId),
-                this.getOrganicGA4Metric('averageSessionDuration', urls, ga4PropertyId),
-                this.getOrganicGA4Metric('bounceRate', urls, ga4PropertyId)
+
+            
+            const [organicPageViews, organicSessionEngagementDuration, organicActiveUsers, organicBounceRate] = await Promise.all([
+                this.processInBatches(urls as unknown as string[], batchSize, delayMs, url => 
+                    this.getOrganicGA4Metric('screenPageViews', [url], ga4PropertyId)
+                ),
+
+                // **the sessionEngagmentDuration and sessions is to get the avgDuration
+                this.processInBatches(urls as unknown as string[], batchSize, delayMs, url => 
+
+                    this.getGA4Metric('userEngagementDuration', [url], ga4PropertyId)
+                ),
+                this.processInBatches(urls as unknown as string[], batchSize, delayMs, url => 
+
+                    this.getGA4Metric('activeUsers', [url], ga4PropertyId)
+                ),
+                this.processInBatches(urls as unknown as string[], batchSize, delayMs, url => 
+                    this.getOrganicGA4Metric('bounceRate', [url], ga4PropertyId)
+                ),
             ]);
-    
-            // Return metrics with 0 for unavailable ones
+
+             // Process metaTagStatus and totalKeywords in batches
+            const metaTagStatusResults = await this.processInBatches(urls as unknown as string[], batchSize, delayMs, async url => {
+                const result = await this.getMetaTagStatusForUrls([url]);
+                return result.withMetaTags;
+            });
+
+            const totalKeywordsResults = await this.processInBatches(urls as unknown as string[], batchSize, delayMs, url => 
+                this.getTotalKeywords([url])
+            );
+
+            const totalSessionEngagementDuration = sessionEngagementDuration.reduce((sum, val) => sum + val, 0) || 0;
+            const totalActiveUsers = activeUsers.reduce((sum, val) => sum + val, 0) || 0;
+            const totalAvgDuration = totalSessionEngagementDuration / totalActiveUsers;
+
+
+            const organicTotalSessionEngagementDuration = organicSessionEngagementDuration.reduce((sum, val) => sum + val, 0) || 0;
+            const organicTotalActiveUsers = organicActiveUsers.reduce((sum, val) => sum + val, 0) || 0;
+            const organicAvgDuration = organicTotalSessionEngagementDuration / organicTotalActiveUsers;
+
+
+            console.log('metaTagStatusResults is', metaTagStatusResults);
+            console.log('totalKeywordsResults is', totalKeywordsResults);
+
+           
+
+            console.log('--------------------------------------------')
+            console.log('organicPageViews is', organicPageViews);
+            console.log('totalPageViews is', pageViews);
+
+            console.log('--------------------------------------------')
+            console.log('organicAvgDuration is', organicAvgDuration);
+            console.log('totalAvgDuration is', totalAvgDuration);
+
+
+
+            console.log('--------------------------------------------') 
+            console.log('organicBounceRate is', organicBounceRate);
+            console.log('totalBounceRate is', bounceRate);
+
+            console.log('--------------------------------------------')
+          
+            
+
+           
             return {
-                pageVisitsScore: { 
-                    organic: organicPageViews || 0,     
-                    total: pageViews || 0
+                pageVisitsScore: {
+                    organic: organicPageViews.reduce((sum, val) => sum + val, 0) || 0,
+
+
+                    total: pageViews.reduce((sum, val) => sum + val, 0) || 0
                 },
-                avgDurationScore:{
+                avgDurationScore: {
                     organic: organicAvgDuration || 0,
-                    total: avgDuration || 0
+                    total: totalAvgDuration || 0
                 },
                 bounceRateScore: {
-                    organic: organicBounceRate || 0,
-                    total: bounceRate || 0
+                    organic: organicBounceRate.reduce((sum, val) => sum + val, 0) || 0,
+                    total: bounceRate.reduce((sum, val) => sum + val, 0) || 0
                 },
                 topPagesScore: {
-                    organic: 0,
-                    total: 0
-                }, // Not available in GA4
-             
+                    organic: (organicPageViews.reduce((sum, val) => sum + val, 0) +
+                                organicAvgDuration +
+                              organicBounceRate.reduce((sum, val) => sum + val, 0)) || 0,
+                    total: (pageViews.reduce((sum, val) => sum + val, 0) +
+                            totalAvgDuration +
+                            bounceRate.reduce((sum, val) => sum + val, 0)) || 0
+
+                },
                 megaTagStatusScore: {
-                    organic: 0,
-                    total: 0
-                }, // Not available in GA4
+                    withMetaTags: metaTagStatusResults.reduce((sum, val) => sum + val, 0) || 0,
+                    totalUrl: urls.length || 0
+                },
+
+
+                totalKeywords: {
+                    organic: totalKeywordsResults.reduce((sum, val) => sum + val, 0) || 0,
+                    total: totalKeywordsResults.reduce((sum, val) => sum + val, 0) || 0
+                }
+
             };
         } catch (error) {
             console.error('Error fetching metrics:', error);
             return {
-                topPagesScore: 0,
-                pageVisitsScore: 0,
-                megaTagStatusScore: 0,
-                avgDurationScore: 0,
-                bounceRateScore: 0
+                pageVisitsScore: { organic: 0, total: 0 },
+                avgDurationScore: { organic: 0, total: 0 },
+                bounceRateScore: { organic: 0, total: 0 },
+                topPagesScore: { organic: 0, total: 0 },
+                megaTagStatusScore: { withMetaTags: 0, totalUrl: 0 },
+                totalKeywords: { organic: 0, total: 0 }
             };
         }
     }
@@ -439,10 +624,11 @@ export class GoogleAnalyticsService {
             });
 
             const response = await this.analyticsData.properties.runReport({
-                property: `properties/${trackingCode}`,
+                property: trackingCode,
                 auth: this.oAuth2Client,
                 requestBody: {
                     dateRanges: [{ startDate: '30daysAgo', endDate: 'today' }],
+
                     dimensions: [{ name: 'pagePath' }],
                     metrics: [{ name: metric }],
                     dimensionFilter: {
@@ -480,7 +666,7 @@ export class GoogleAnalyticsService {
                 }
             });
     
-            console.log('response is', JSON.stringify(response.data, null, 2));
+            // console.log('response is', JSON.stringify(response.data, null, 2));
             // Convert string value to number
             const value = response.data.rows?.[0]?.metricValues?.[0]?.value;
             return value ? parseFloat(value) : 0;
@@ -490,50 +676,302 @@ export class GoogleAnalyticsService {
         }
     }
 
-    private async getGA4Metric(metric: string, urls: string[], trackingCode: string): Promise<number> {
+    private async getGA4Metric(metric: string, urls: string[], trackingCode: string, retries = 3): Promise<number> {
         try {
             // Extract the slug from URLs
             const slugs = urls.map(url => {
-                try {
-                    const urlObj = new URL(url);
-                    // Remove leading/trailing slashes and get the slug
-                    return urlObj.pathname.replace(/^\/|\/$/g, '');
-                } catch {
-                    // If URL parsing fails, assume it's already a slug
-                    return url.replace(/^\/|\/$/g, '');
-                }
-            });
 
-            const response = await this.analyticsData.properties.runReport({
-                property: `properties/${trackingCode}`,
-                auth: this.oAuth2Client,
-                requestBody: {
-                    dateRanges: [{ startDate: '30daysAgo', endDate: 'today' }],
-                    dimensions: [{ name: 'pagePath' }],
-                    metrics: [{ name: metric }],
-                    dimensionFilter: {
-                        orGroup: {
-                            expressions: slugs.map(slug => ({
-                                filter: {
-                                    fieldName: 'pagePath',
-                                    stringFilter: {
-                                        matchType: 'CONTAINS',
-                                        value: slug
-                                    }
+            try {
+                const urlObj = new URL(url);
+                // Remove leading/trailing slashes and get the slug
+                return urlObj.pathname.replace(/^\/|\/$/g, '');
+            } catch {
+                // If URL parsing fails, assume it's already a slug
+                return url.replace(/^\/|\/$/g, '');
+            }
+        });
+
+        const response = await this.analyticsData.properties.runReport({
+            property: trackingCode,
+            auth: this.oAuth2Client,
+            requestBody: {
+                dateRanges: [{ startDate: '30daysAgo', endDate: 'today' }],
+                dimensions: [{ name: 'pagePath' }],
+                metrics: [{ name: metric }],
+                dimensionFilter: {
+                    orGroup: {
+                        expressions: slugs.map(slug => ({
+                            filter: {
+                                fieldName: 'pagePath',
+                                stringFilter: {
+                                    matchType: 'CONTAINS',
+                                    value: slug
                                 }
-                            }))
-                        }
+                            }
+                        }))
                     }
                 }
-            });
-    
-            console.log('response is', JSON.stringify(response.data, null, 2));
-            // Convert string value to number
-            const value = response.data.rows?.[0]?.metricValues?.[0]?.value;
-            return value ? parseFloat(value) : 0;
+            }
+        });
+
+            // Check if rows exist
+        if (!response.data.rows || response.data.rows.length === 0) {
+            console.warn('No data found for the specified URLs and metric.');
+            return 0
+            // throw ErrorBuilder.badRequest('No data found for the specified URLs and metric. Please check the property ID and URLs.');
+        }
+        console.log('response is', JSON.stringify(response.data, null, 2));
+        // Convert string value to number
+
+        const value = response.data.rows?.[0]?.metricValues?.[0]?.value;
+        console.log('value is', value);
+        console.log('value float is', value ? parseFloat(value) : 0);
+        return value ? parseFloat(value) : 0;
+
+       
         } catch (error) {
+            if (retries > 0) {
+                console.warn(`Retrying ${metric} (${retries} attempts left)...`);
+                await new Promise(resolve => setTimeout(resolve, 2000)); // 2-second delay
+                return this.getGA4Metric(metric, urls, trackingCode, retries - 1);
+            }
             console.error(`Error fetching ${metric}:`, error);
             return 0;
         }
+    }
+
+
+    private async getMetaTagStatusForUrls(urls: string[]): Promise<{ withMetaTags: number; total: number }> { 
+    
+        try {
+            let withMetaTags = 0;
+            // ** generate the siteUrl from the first url assuming all urls belong to the same site
+            const siteUrl = new URL(urls[0]).origin + '/';
+            //  console.log('siteUrl is', siteUrl);
+            const normalizedUrls = urls.map(url => url.endsWith('/') ? url : `${url}/`);
+            // console.log(normalizedUrls);
+            // Fetch data for all URLs concurrently
+
+
+            const inspectionResults = await Promise.all(
+                normalizedUrls.map(url => 
+                    
+                    this.searchConsole.urlInspection.index.inspect({
+                        requestBody: {
+                            inspectionUrl: url, 
+                            siteUrl: siteUrl
+                        }
+
+                    })
+                )
+
+            );
+            // Count URLs with meta tags
+            inspectionResults.forEach(result => {
+                const indexStatusResult = result.data.inspectionResult?.indexStatusResult;
+                if(indexStatusResult?.indexingState === 'INDEXING_ALLOWED'){
+                    withMetaTags++;
+                }
+
+            });
+    
+            // console.log(`${withMetaTags} out of ${urls.length} urls have meta tags`);
+            return {
+                withMetaTags,
+                total: urls.length
+            };
+        } catch (error: any) {
+            console.error('Error fetching meta tag status:', error);
+            return{ 
+                withMetaTags: 0,
+                total: 0
+            }
+        }
+    
+    }
+
+
+    private async getTotalKeywords(urls: string[]): Promise<number> {
+
+        try {
+            // Generate siteUrl from the first URL
+
+
+
+            const siteUrl = new URL(urls[0]).origin + '/';
+            const normalizedUrls = urls.map(url => url.endsWith('/') ? url : `${url}/`);
+            // Get current date in PT time (UTC -7:00/8:00)
+            const now = new Date();
+            const endDate = this.formatDateToPT(now);
+            const startDate = this.formatDateToPT(new Date(now.setDate(now.getDate() - 30))); // Last 30 days
+
+            // console.log('startDate is', startDate);
+            // console.log('endDate is', endDate);
+    
+            // Fetch keyword data for all URLs
+
+            const keywordData = await Promise.all(
+                normalizedUrls.map(url => 
+                    this.searchConsole.searchanalytics.query({
+                        siteUrl: siteUrl,
+                        requestBody: {
+                            startDate: startDate,
+                            endDate: endDate,
+                            dimensions: ['query', 'page'],
+                            dimensionFilterGroups: [
+                                {
+                                    filters: [
+                                        {
+                                            dimension: 'page',
+                                            operator: 'equals',
+                                            expression: url
+                                        }
+                                    ]
+                                }
+                            ],
+                            rowLimit: 10000 // Maximum number of rows to fetch
+                        }
+                    })
+                )
+            );
+    
+            // Log the full response for debugging
+            // console.log('API Response:', JSON.stringify(keywordData, null, 2));
+
+            // Count unique keywords for each URL
+
+            const keywordCounts = keywordData.map(response => {
+                if (!response.data.rows || response.data.rows.length === 0) {
+                    return 0;
+                }
+                // Extract unique queries (keywords)
+                const uniqueQueries = new Set(response.data.rows.map(row => row.keys?.[0]));
+                return uniqueQueries.size;
+
+            });
+    
+            // Sum keyword counts for all URLs
+            const totalKeywords = keywordCounts.reduce((sum, count) => sum + count, 0);
+    
+            // console.log('Total Keywords:', totalKeywords);
+            return totalKeywords;
+        } catch (error: any) {
+            console.error('Error fetching total keywords:', error);
+            throw new Error(`Failed to fetch total keywords: ${error.message}`);
+        }
+    }
+
+
+    public async getAllPagesFromSite(siteUrl: string){ 
+        try {
+            // Get current date in PT time (UTC -7:00/8:00)
+            const now = new Date();
+            const endDate = this.formatDateToPT(now);
+
+            const startDate = this.formatDateToPT(new Date(now.setDate(now.getDate() - 30))); // Last 30 days
+    
+            const normalizedSiteUrl = new URL(siteUrl).origin + '/';
+            // Fetch all pages under the site URL
+            const response = await this.searchConsole.searchanalytics.query({
+                siteUrl: normalizedSiteUrl,
+                requestBody: {
+                    startDate: startDate,
+                    endDate: endDate,
+                    dimensions: ['page'], // Fetch pages
+                    rowLimit: 10000 // Maximum number of rows to fetch
+                }
+            });
+    
+            // Extract page URLs from the response
+            const pages = response.data.rows?.map(row => row.keys?.[0]) || [];
+    
+
+            // console.log('All Pages:', pages);
+            return pages;
+        } catch (error: any) {
+            console.error('Error fetching all pages:', error);
+            throw new Error(`Failed to fetch all pages: ${error.message}`);
+        }
+    }
+
+    private async getSiteIssues(urls:string[]){ 
+        try {
+            let withMetaTags = 0;
+            // ** generate the siteUrl from the first url assuming all urls belong to the same site
+            const siteUrl = new URL(urls[0]).origin + '/';
+            //  console.log('siteUrl is', siteUrl);
+            const normalizedUrls = urls.map(url => url.endsWith('/') ? url : `${url}/`);
+            // console.log(normalizedUrls);
+            // Fetch data for all URLs concurrently
+
+
+            const inspectionResults = await Promise.all(
+                normalizedUrls.map(url => 
+                    
+                    this.searchConsole.urlInspection.index.inspect({
+                        requestBody: {
+                            inspectionUrl: url, 
+                            siteUrl: 'https://bestdogresources.com/'
+                        }
+
+                    })
+                )
+
+            );
+            inspectionResults.forEach(result => {
+                const mobileIssues = result.data.inspectionResult?.mobileUsabilityResult?.issues;
+                const ampIssues = result.data.inspectionResult?.ampResult?.issues;
+                const richIssues = result.data.inspectionResult?.richResultsResult?.detectedItems?.map(item => item.items?.map(item => item.issues));
+            
+                if (mobileIssues?.length) {
+                    console.log('Mobile Usability Issues:', mobileIssues);
+                }
+                if (ampIssues?.length) {
+                    console.log('AMP Issues:', ampIssues);
+                }
+                if (richIssues?.length) {
+                    console.log('Rich Issues:', richIssues.flat());
+                }
+            });
+           
+
+
+           return 'done'
+        } catch (error: any) {
+            console.error('Error fetching meta tag status:', error);
+            return{ 
+                withMetaTags: 0,
+                total: 0
+            }
+        }
+    }
+
+    // Helper function to format date to YYYY-MM-DD in PT time
+    private formatDateToPT(date: Date): string {
+        const ptOffset = -7 * 60; // PT is UTC-7 (or UTC-8 during daylight saving time)
+        const ptDate = new Date(date.getTime() + ptOffset * 60 * 1000);
+
+        console.log('ptDate is', ptDate);
+        return ptDate.toISOString().split('T')[0];
+    }
+
+    private async processInBatches<T>(
+        urls: string[],
+        batchSize: number,
+        delayMs: number,
+        processFn: (url: string) => Promise<T>
+    ): Promise<T[]> {
+        const results: T[] = [];
+        for (let i = 0; i < urls.length; i += batchSize) {
+            const batch = urls.slice(i, i + batchSize);
+            const batchResults = await Promise.all(batch.map(processFn));
+            results.push(...batchResults);
+
+            // Add delay between batches, except for the last batch
+            if (i + batchSize < urls.length) {
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
+        }
+        return results;
     }
 }

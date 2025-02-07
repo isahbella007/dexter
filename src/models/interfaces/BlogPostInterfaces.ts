@@ -52,8 +52,8 @@ export interface IPerformanceMetrics {
 export interface IPlatformPublication {
     platform: 'wordpress' | 'shopify' | 'wix';
     status: 'pending' | 'published' | 'failed';
-    publishedSiteId: number
-    publishedUrl?: string;
+    publishedSiteId: number | string;
+    publishedUrl?: string ;
     publishedSlug?: string;
     publishedAt?: Date;
     error?: string;

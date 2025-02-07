@@ -1,12 +1,8 @@
 import puppeteer from 'puppeteer';
-import OpenAI from 'openai';
-import { openai } from '../../config/openai';
 import { OpenAIService } from './openAIService';
-import { AppError } from '../errors/AppError';
-import { ErrorType } from '../errors/errorTypes';
-import { SEOAnalysis } from '../../models/interfaces/BlogPostInterfaces';
 import genericPool from 'generic-pool';
-// Step 1: Extract SEO Data with Puppeteer
+
+
 // async function extractSEOData(url: string) {
 //     const browser = await puppeteer.launch({ headless: true });
 //     const page = await browser.newPage();
@@ -58,94 +54,178 @@ import genericPool from 'generic-pool';
   idleTimeoutMillis: 30000 // Close idle browsers after 30 seconds
 });
 
-async function extractSEOData(url: string, retries=2) {
+const CRITICAL_UNHEALTHY_METRICS = [
+  'imagesMissingAlt', //crucial for accessiblity and seo
+  'brokenInternalLinks',//broken links harms user experience and seo
+  'slowPageLoad', // leads to bounce rate
+  'missingCanonicalTag',
+  'largeDOMSize',
+  'lowTextHtmlRatio',
+  'lowH1Tags'
+];
+
+
+const LESS_CRITICAL_METRICS = [
+  'missingMetaTitle',
+  'missingMetaDescription',
+  'lowInternalLinks'
+];
+
+async function extractSEOData(url: string, retries = 2, foundCriticalMetrics = new Set<string>(), canonicalMap = new Map<string, string[]>()) {
   const browser = await browserPool.acquire();
   const page = await browser.newPage();
   
   try {
+      const startTime = Date.now();
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      
-      const [metaTitle, metaDescription, internalLinks, imagesMissingAlt] = await Promise.all([
-          page.$eval('title', el => el?.textContent || ''),
-          page.$eval('meta[name="description"]', el => (el as HTMLMetaElement)?.content || ''),
-          page.$$eval('a', links => links.filter(link => link.href.includes(window.location.hostname)).length),
-          page.$$eval('img', imgs => imgs.filter(img => !img.alt || img.alt.trim() === '').length)
+      const loadTime = (Date.now() - startTime) / 1000; // Load time in seconds
+
+      // Scrape SEO data with error handling for missing elements
+      const [metaTitle, metaDescription, internalLinks, imagesMissingAlt, brokenLinks, canonicalTag, domSize, textHtmlRatio, h1Tags] = await Promise.all([
+        page.$eval('title', el => el?.textContent || '').catch(() => ''),
+        page.$eval('meta[name="description"]', el => (el as HTMLMetaElement)?.content || '').catch(() => ''),
+        page.$$eval('a', links => links.filter(link => link.href.includes(window.location.hostname)).length).catch(() => 0),
+        page.$$eval('img', imgs => imgs.filter(img => !img.alt || img.alt.trim() === '').length).catch(() => 0),
+        page.$$eval('a', links => links.filter(link => !link.href || link.href === '#').length).catch(() => 0), // Broken links
+        page.$eval('link[rel="canonical"]', el => el?.href || '').catch(() => ''), // Canonical tag
+        page.evaluate(() => document.getElementsByTagName('*').length).catch(() => 0), // DOM size
+        page.evaluate(() => {
+            const textContent = document.body.textContent || '';
+            const htmlContent = document.body.innerHTML || '';
+            return (textContent.length / htmlContent.length) * 100;
+        }).catch(() => 0), // Text-HTML ratio
+        page.$$eval('h1', h1s => h1s.length).catch(() => 0) // H1 tags
       ]);
 
-      console.log(metaTitle, metaDescription, internalLinks, imagesMissingAlt)
+      // Check for critical unhealthy metrics
+      if (imagesMissingAlt > 0) foundCriticalMetrics.add('imagesMissingAlt');
+      if (brokenLinks > 0) foundCriticalMetrics.add('brokenInternalLinks');
+      if (!canonicalTag) foundCriticalMetrics.add('missingCanonicalTag');
+      if (loadTime > 3) foundCriticalMetrics.add('slowPageLoad');
+      if (domSize > 1500) foundCriticalMetrics.add('largeDOMSize');
+      if (textHtmlRatio < 20) foundCriticalMetrics.add('lowTextHtmlRatio');
+      if (h1Tags == 0) foundCriticalMetrics.add('lowH1Tags');
+
+      // Track canonical tags for duplication
+      if (canonicalTag) {
+          if (canonicalMap.has(canonicalTag)) {
+              canonicalMap.get(canonicalTag)?.push(url);
+          } else {
+              canonicalMap.set(canonicalTag, [url]);
+          }
+      }
+
       return {
-          url,
-          metaTitle,
-          metaDescription,
-          internalLinksCount: internalLinks,
-          imagesMissingAlt
-      };
+        url,
+        metaTitle,
+        metaDescription,
+        internalLinksCount: internalLinks,
+        imagesMissingAlt,
+        brokenLinks,
+        canonicalTag,
+        loadTime,
+        domSize,
+        textHtmlRatio,
+        h1Tags,
+        foundCriticalMetrics: Array.from(foundCriticalMetrics),
+        canonicalMap
+    };
   } catch (error) {
-    if (retries > 0) {
-      console.warn(`Retrying ${url} (${retries} attempts left)...`);
-      return extractSEOData(url, retries - 1);
-  }
-  console.error(`Failed to scrape ${url}:`, error);
-  return null; // Return null for failed URLs
+      if (retries > 0) {
+          console.warn(`Retrying ${url} (${retries} attempts left)...`);
+          return extractSEOData(url, retries - 1, foundCriticalMetrics, canonicalMap);
+      }
+      console.error(`Failed to scrape ${url}:`, error);
+      return null; // Return null for failed URLs
   } finally {
-    await page.close();
-    browserPool.release(browser);
+      await page.close();
+      browserPool.release(browser);
   }
 }
 
 async function getBasicSEOInsights(urls: string[]) {
-  // Process URLs in batches
-  const insights = await processBatch(urls, 2); // Process 2 URLs at a time
-    
-  // Filter out failed insights
-  return insights.filter(insight => insight !== null);
+  const insights = [];
+  const foundCriticalMetrics = new Set<string>();
+  const failedUrls = []; // Track URLs that couldn't be scraped
+  const canonicalMap = new Map<string, string[]>(); // Track canonical tags
+  const metricRepetitionThreshold = 5; // Stop if a metric appears in 5 pages
+  const metricCounts = new Map<string, number>(); // Track how often each metric appears
+
+  // Process URLs in batches of 2
+  for (let i = 0; i < urls.length; i += 2) {
+      // Stop scraping if all critical unhealthy metrics are found
+      if (foundCriticalMetrics.size === CRITICAL_UNHEALTHY_METRICS.length) {
+          console.log('All critical unhealthy metrics found. Stopping scraping.');
+          break;
+      }
+
+      // Get the current batch of URLs
+      const batch = urls.slice(i, i + 2);
+
+      // Scrape the batch in parallel
+      const batchResults = await Promise.all(
+          batch.map(url => extractSEOData(url, 2, foundCriticalMetrics, canonicalMap))
+      );
+
+      // Process the results
+      for (const result of batchResults) {
+          if (result) {
+              console.log(`Insights for ${result.url}`, result);
+              insights.push(result);
+              // Update the global foundCriticalMetrics set with metrics from this URL
+              result.foundCriticalMetrics.forEach(metric => {
+                  foundCriticalMetrics.add(metric);
+                  // Update the metric count
+                  metricCounts.set(metric, (metricCounts.get(metric) || 0) + 1);
+              });
+
+              // Stop scraping if a specific metric appears in N pages
+              for (const [metric, count] of metricCounts.entries()) {
+                  if (count >= metricRepetitionThreshold) {
+                      console.log(`Metric "${metric}" found in ${count} pages. Stopping scraping.`);
+                      break;
+                  }
+              }
+          } else {
+              failedUrls.push(batch[batchResults.indexOf(result)]); // Track failed URLs
+          }
+      }
+
+      // Break the outer loop if a metric threshold is reached
+      if ([...metricCounts.values()].some(count => count >= metricRepetitionThreshold)) {
+          break;
+      }
+  }
+
+  // Log failed URLs
+  if (failedUrls.length > 0) {
+      console.warn('Failed to scrape the following URLs:', failedUrls);
+  }
+
+  // Check for duplicate canonical tags
+  for (const [canonicalUrl, pages] of canonicalMap.entries()) {
+      if (pages.length > 1) {
+          console.warn(`Duplicate canonical tag found for ${canonicalUrl}. Pages:`, pages);
+          foundCriticalMetrics.add('duplicateCanonicalTag');
+      }
+  }
+
+  // console log the metricscount map we will pass to OpenAi for insights
+  console.log('Metric counts:', metricCounts);
+  console.log('to see clearer', Object.fromEntries(metricCounts))
+  return {insights, metricCounts};
+
+
 }
 
-async function processBatch(urls: string[], batchSize = 2) {
-  const results = [];
-    
-    for (let i = 0; i < urls.length; i += batchSize) {
-        const batch = urls.slice(i, i + batchSize);
-        const batchResults = await Promise.all(
-            batch.map(url => extractSEOData(url).catch(error => {
-                console.error(`Failed to scrape ${url}:`, error);
-                return null; // Return null for failed URLs
-            }))
-        );
-        results.push(...batchResults);
-    }
-    
-    return results;
-}
 
 export async function mapSEOAnalysis(urls: string[]) {
   // Step 1: Get basic insights
+  console.log('urls passed to the seo analysis service', urls)
   const basicInsights = await getBasicSEOInsights(urls);
-  
-  // Filter out failed insights
-  const validInsights = basicInsights.filter(insight => insight !== null);
-  
-  // Log removed URLs
-  const failedUrls = urls.filter(url => !validInsights.some(insight => insight.url === url));
-  if (failedUrls.length > 0) {
-      console.warn('Failed to scrape and removed:', failedUrls);
-  }
 
-  // If no valid insights, return empty array
-  if (validInsights.length === 0) {
-      return [];
-  }
-
-  // Step 2: Add AI analysis
+  // console.log(basicInsights);
   const openAIService = new OpenAIService();
-  const results = await Promise.all(validInsights.map(async (insight) => {
-      console.log('Analyzing:', insight.url);
-      const aiAnalysis = await openAIService.analyzeSEO(insight);
-      return {
-          ...insight,
-          aiAnalysis
-      };
-  }));
-  
-  return results;
+  const aiAnalysis = await openAIService.analyzeSEO(basicInsights.metricCounts);
+  return aiAnalysis
 }

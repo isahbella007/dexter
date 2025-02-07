@@ -7,12 +7,13 @@ import { ResponseFormatter } from "../../utils/errors/ResponseFormatter";
 
 export const AnalyticsController = { 
     fetchAnalytics: asyncHandler(async(req: Request, res: Response) => { 
-        const platform = req.query?.platform as string || undefined;
-        const siteId = req.query?.siteId as string || undefined;
-        if(!platform) { 
-            throw ErrorBuilder.badRequest('Platform is required')
+        const siteUrl = req.query?.siteUrl as string || undefined;
+        const trackingCode = req.query?.trackingCode as string || undefined;
+        if(!siteUrl || !trackingCode) { 
+            throw ErrorBuilder.badRequest('Site url and tracking code are required')
         }
-        const response = await analyticsService.fullSEOAnalysis((req.user as IUser)._id, platform, siteId)
+        const response = await analyticsService.fullSEOAnalysis((req.user as IUser)._id, trackingCode, siteUrl )
+
         ResponseFormatter.success(res, response, 'Dashboard analytics fetched')
     })
 }

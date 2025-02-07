@@ -11,14 +11,35 @@ const WordPressSiteSchema = new Schema({
     url: { type: String, default: null },
     ga4TrackingCode: { type: String, default: null } //TODO:: consider encrypting ewoooo
 }, { _id: false });
+
+// Wix site schema
+const WixSiteSchema = new Schema({
+    siteId: { type: String, required: true }, // 
+    name: { type: String, required: true },
+    url: { type: String, required: true }, 
+    ga4TrackingCode: { type: String, default: null }, //TODO:: consider encrypting ewoooo
+    // **Add this here because if the user is to install the app on various sites, I am assuming that each site will have a different access token as well as instance id
+    siteAccessToken: { type: String, required: true },
+    siteInstanceId: { type: String, required: true },
+    ownerMemberId: { type: String, required: false },
+  
+}, { _id: false });
   
 // WordPress platform schema
 const WordPressPlatformSchema = new Schema({
     sites: [WordPressSiteSchema]    
 }, { _id: false });
 
+
+// Wix platform schema
+const WixPlatformSchema = new Schema({
+    sites: [WixSiteSchema]
+}, { _id: false });
+
+
 const WixAuthSessionSchema = new Schema({
     codeVerifier: { type: String },
+
     codeChallenge: { type: String },
     state: { type: String },
     timestamp: { type: Date, default: Date.now },
@@ -58,6 +79,7 @@ const userSchema = new Schema<IUser>(
                 scope: {type: String, required: false}, 
                 memberId: {type: String, required: false},
                 contactId: {type: String, required: false},
+                instanceId: {type: String, required: false},
                 authSession:WixAuthSessionSchema
             },
             google: {
@@ -72,7 +94,8 @@ const userSchema = new Schema<IUser>(
             }]
         },
         platforms: {
-            wordpress: WordPressPlatformSchema
+            wordpress: WordPressPlatformSchema,
+            wix: WixPlatformSchema
         },
         subscription: { type: subscriptionSchema, default: () => ({}) },
         settings: { type: userSettingsSchema, default: () => ({}) },

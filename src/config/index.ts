@@ -40,8 +40,15 @@ const configSchema = Joi.object({
     WP_PRODUCTION_REDIRECT_URI: Joi.string().optional(),
 
     WIX_CLIENT_ID: Joi.string().required(),
-    WIX_DEVELOPMENT_REDIRECT_URI: Joi.string().required(),
-    WIX_PRODUCTION_REDIRECT_URI: Joi.string().optional(),
+    WIX_SECRET: Joi.string().required(),
+    WIX_INITIAL_REDIRECT_URI_DEVELOPMENT: Joi.string().required(),
+    WIX_INITIAL_REDIRECT_URI_PRODUCTION: Joi.string().optional(),
+
+    WIX_FINAL_REDIRECT_URI_DEVELOPMENT: Joi.string().required(),
+    WIX_FINAL_REDIRECT_URI_PRODUCTION: Joi.string().optional(),
+    
+
+
 
     GOOGLE_CLIENT_ID: Joi.string().required(),
     GOOGLE_CLIENT_SECRET: Joi.string().required(),
@@ -108,9 +115,14 @@ export const config = {
 
   wix: { 
     clientId: envVars.WIX_CLIENT_ID,
-    developmentRedirectUri: envVars.WIX_DEVELOPMENT_REDIRECT_URI,
-    productionRedirectUri: envVars.WIX_PRODUCTION_REDIRECT_URI
+    clientSecret: envVars.WIX_SECRET,
+    initialDevelopmentRedirectUri: envVars.WIX_INITIAL_REDIRECT_URI_DEVELOPMENT,
+    initialProductionRedirectUri: envVars.WIX_INITIAL_REDIRECT_URI_PRODUCTION,
+    finalDevelopmentRedirectUri: envVars.WIX_FINAL_REDIRECT_URI_DEVELOPMENT,
+    finalProductionRedirectUri: envVars.WIX_FINAL_REDIRECT_URI_PRODUCTION
   }, 
+
+
 
   google: { 
     clientId: envVars.GOOGLE_CLIENT_ID,
