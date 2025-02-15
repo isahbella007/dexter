@@ -1,7 +1,7 @@
 import { BlogPost, PUBLISH_STATUS, SYSTEM_PLATFORM } from "../../../models/BlogPost";
 import { AiModel } from "../../../models/BlogPostCoreSettings";
 import { GenerationBatch } from "../../../models/GenerationBatch";
-import { IBlogPost, IPostMetrics } from "../../../models/interfaces/BlogPostInterfaces";
+import { IBlogPost, IPostAnalytics, IPostMetrics } from "../../../models/interfaces/BlogPostInterfaces";
 import { User } from "../../../models/User";
 import { AppError } from "../../../utils/errors/AppError";
 import { ErrorBuilder } from "../../../utils/errors/ErrorBuilder";
@@ -12,6 +12,7 @@ import { AIServiceFactory } from "../../../utils/services/aiServices/AIServiceFa
 import { platformManagementService } from "../../../utils/services/platformManagement.service";
 import { subscriptionFeatureService } from "../../../utils/subscription/subscriptionService";
 import { blogPostService } from "../blog.service";
+import { calculatePostScore, classifyScore } from "../../../utils/helpers/metricsGraders";
 
 interface ISectionEditRequest {
     selectedText: string;        // The exact text they selected
@@ -104,53 +105,34 @@ export class BlogPostCrudService {
 
             if(!user.oauth?.google?.accessToken || !user.oauth?.google?.refreshToken || !user.oauth?.google?.expiryDate) { 
                 console.log('we still want to be able to tell them that we are unable to fetch history for them or something')
-                return {blogPosts, analytics: []}
+                return {blogPosts, analytics: [], aggregatedAnalytics: {}}
             }
 
-            // Only fetch analytics for WordPress if siteId is provided
-            if (platform === SYSTEM_PLATFORM.wordpress) {
-                if (!siteId) {
-                    throw ErrorBuilder.badRequest('Site ID is required for WordPress platform');
-                }
+            const googleAnalyticsService = new GoogleAnalyticsService(
+                user?.oauth?.google?.accessToken as string, 
+                user?.oauth?.google?.refreshToken as string, 
+                user?.oauth?.google?.expiryDate as number
+            );
 
-                // Extract all slugs for the specified platform and site
-                // const slugs = blogPosts.flatMap(post => 
-                //     post.platformPublications
-                //         .filter(pub => pub.platform === platform && pub.publishedSiteId.toString() === siteId)
-                //         .map(pub => pub.publishedSlug)
-                // ).filter(slug => slug); // Remove any undefined slugs
+            // const siteUrl = ['https://bestdogresources.com/frenchie-pee-on-bed/']
+            // const slugs = ['is-pine-straw-good-for-dog-bedding', 'can-dogs-eat-vegetables', 'top-10-vegetables-for-dogs-a-guide-to-nutritious-canine-diets-2', 'frenchie-pee-on-bed']
+            const {updatedPosts, analytics, aggregatedAnalytics} = await this.processPlatformAnalytics(blogPosts, platform, siteId, site?.ga4TrackingCode, googleAnalyticsService)
 
-                // const siteUrls = blogPosts.flatMap(post => 
-                //     post.platformPublications
-                //         .filter(pub => pub.platform === platform && pub.publishedSiteId.toString() === siteId)
-                //         .map(pub => pub.publishedUrl)
-                // ).filter(url => url); // Remove any undefined urls
+            // Save updated posts
+            await Promise.all(updatedPosts.map(post => (post as any).save()));
 
-                const siteUrls = ['https://bestdogresources.com/frenchie-pee-on-bed/']
-                const slugs = ['is-pine-straw-good-for-dog-bedding', 'can-dogs-eat-vegetables', 'top-10-vegetables-for-dogs-a-guide-to-nutritious-canine-diets-2', 'frenchie-pee-on-bed']
-                console.log('slugs are', slugs);
-
-                // Don't attempt to fetch analytics if there are no slugs
-                if (slugs.length === 0) {
-                    return {blogPosts, analytics: []};
-                }
-
-                const googleAnalyticsService = new GoogleAnalyticsService(
-                    user?.oauth?.google?.accessToken as string, 
-                    user?.oauth?.google?.refreshToken as string, 
-                    user?.oauth?.google?.expiryDate as number
-                );
-
-                const analytics = await googleAnalyticsService.fetchAnalyticsForWordPress(slugs as unknown as string[], site?.ga4TrackingCode as string, siteUrls as unknown as string[]);
-                return {blogPosts, analytics};
-            }
-
-            // For other platforms (e.g., Wix, Shopify), return blog posts without analytics for now
-            return {blogPosts, analytics: []};
-
+            return {
+                blogPosts,
+                analytics,
+                aggregatedAnalytics
+            };
         } catch (error: any) {
-            console.error('Error fetching blog posts by platform:', error);
-            throw new AppError(error.errors[0].message, ErrorType.UNKNOWN, error.status)
+            // If the error is already an AppError or ErrorBuilder error, rethrow it
+            if (error instanceof AppError || error.name === 'AppError') {
+                throw error;
+            }
+            // For other errors, wrap them in an AppError
+            throw new AppError(error.message, ErrorType.UNKNOWN, error.status || 500);
         }
     }
 
@@ -235,6 +217,131 @@ export class BlogPostCrudService {
 
         return { surroundingContext, newContent, blogPost }
     }
+
+    private async processPlatformAnalytics(
+        blogPosts: IBlogPost[],
+        platform: string,
+        siteId: string | undefined,
+        ga4TrackingCode: string | undefined | null,
+        googleAnalyticsService: GoogleAnalyticsService
+    ) {
+        const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+        const updatedPosts: IBlogPost[] = [];
+        const analytics: IPostAnalytics[] = [];
+        // Add aggregation logic
+        const aggregatedAnalytics = {
+            platform,
+            siteId,
+            organicTraffic: { total: 0 , improvements: 0},
+            pagesPerSession: { total: 0 },
+            bounceRate: { total: 0 },
+            crawlError: { total: 0 },
+            avgPosition: { total: 0 },
+            postCount: 0,
+            score: 0,
+            classification: ''
+        };
+    
+        if (!ga4TrackingCode) {
+            return {
+                updatedPosts: [],
+                analytics: blogPosts.flatMap(post =>
+                    post.platformAnalytics.filter(pa => pa.platform === platform && (!siteId || pa.siteId === siteId))
+                ),
+                aggregatedAnalytics
+            };
+        }
+
+        // Calculate max values for normalization
+        const maxValues = {
+            organicTraffic: Math.max(...blogPosts.map(post => post.platformAnalytics.reduce((max, pa) => Math.max(max, pa.organicTraffic.total), 0))),
+            pagesPerSession: Math.max(...blogPosts.map(post => post.platformAnalytics.reduce((max, pa) => Math.max(max, pa.pagesPerSession.total), 0))),
+            bounceRate: Math.max(...blogPosts.map(post => post.platformAnalytics.reduce((max, pa) => Math.max(max, pa.bounceRate.total), 0))),
+            crawlError: Math.max(...blogPosts.map(post => post.platformAnalytics.reduce((max, pa) => Math.max(max, pa.crawlError.total), 0))),
+            avgPosition: Math.max(...blogPosts.map(post => post.platformAnalytics.reduce((max, pa) => Math.max(max, pa.avgPosition.total), 0)))
+        };
+    
+        console.log('the max values are', maxValues)
+        // Process all blog posts
+        await Promise.all(blogPosts.map(async (post) => {
+            const platformAnalytics = post.platformAnalytics.find(
+                pa => pa.platform === platform && (!siteId || pa.siteId === siteId)
+            );
+    
+            // Get all slugs and URLs for the platform and site
+            const slugs = post.platformPublications
+                .filter(pub => pub.platform === platform && (!siteId || pub.publishedSiteId === siteId))
+                .map(pub => pub.publishedSlug)
+                .filter(slug => slug);
+        
+            const siteUrls = post.platformPublications
+                .filter(pub => pub.platform === platform && (!siteId || pub.publishedSiteId === siteId))
+                .map(pub => pub.publishedUrl)
+                .filter(url => url);
+
+            console.log(`the slugs and siteUrls for ${post._id} are`, slugs, siteUrls)
+            if (!platformAnalytics || !platformAnalytics.lastUpdated || platformAnalytics.lastUpdated < twelveHoursAgo) {
+                const metrics = await googleAnalyticsService.getPostMetrics(
+                    ga4TrackingCode,
+                    slugs as unknown as string[],
+                    siteUrls as unknown as string[]
+                );
+
+                 // Calculate score and classification
+                const score = calculatePostScore({
+                    organicTraffic: metrics.organicTraffic.total,
+                    pagesPerSession: metrics.pagesPerSession.total,
+                    bounceRate: metrics.bounceRate.total,
+                    crawlError: metrics.crawlError.total,
+                    avgPosition: metrics.avgPosition.total
+                }, maxValues);
+
+                const classification = classifyScore(score);
+
+                console.log('the metrics are', metrics)
+    
+                if (platformAnalytics) {
+                    Object.assign(platformAnalytics, metrics, { lastUpdated: new Date(), improvements: metrics.organicTraffic.improvements || 0, score, classification });
+                } else {
+                    post.platformAnalytics.push({
+                        platform: platform as SYSTEM_PLATFORM,
+                        siteId: siteId || '',
+                        lastUpdated: new Date(),
+                        organicTraffic: metrics.organicTraffic || { total: 0, improvements: 0 },
+                        pagesPerSession: metrics.pagesPerSession || { total: 0 },
+                        bounceRate: metrics.bounceRate || { total: 0 },
+                        crawlError: metrics.crawlError || { total: 0 },
+                        avgPosition: metrics.avgPosition || { total: 0 },
+                        score: score || 0,
+                        classification: classification || ''
+                    });
+                }
+    
+                updatedPosts.push(post);
+            }
+    
+            // Add to analytics array
+            const currentAnalytics = post.platformAnalytics.find(
+                pa => pa.platform === platform && (!siteId || pa.siteId === siteId)
+            );
+            if (currentAnalytics) {
+                analytics.push(currentAnalytics);
+                aggregatedAnalytics.organicTraffic.total += currentAnalytics.organicTraffic.total;
+                aggregatedAnalytics.organicTraffic.improvements += currentAnalytics.organicTraffic.improvements;
+                aggregatedAnalytics.pagesPerSession.total += currentAnalytics.pagesPerSession.total;
+                aggregatedAnalytics.bounceRate.total += currentAnalytics.bounceRate.total;
+                aggregatedAnalytics.crawlError.total += currentAnalytics.crawlError.total;
+                aggregatedAnalytics.avgPosition.total += currentAnalytics.avgPosition.total;
+                aggregatedAnalytics.postCount++;
+                aggregatedAnalytics.score += currentAnalytics.score;
+                aggregatedAnalytics.classification = currentAnalytics.classification;
+            }
+        }));
+    
+        return { updatedPosts, analytics, aggregatedAnalytics };
+    }
 }
+
+
 
 export const crudBlogPostService = new BlogPostCrudService(); 

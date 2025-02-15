@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { AiModel, ArticleType, ArticleTypeMaxWords, POV, ToneOfVoice } from "../BlogPostCoreSettings";
+import { SYSTEM_PLATFORM } from "../BlogPost";
 
 export interface IMediaSettings {
     includeImages: boolean;
@@ -130,6 +131,7 @@ export interface IBlogPost {
     performance: IPerformanceMetrics;
     platformPublications: IPlatformPublication[];
     linking: ILinkingSettings;
+    platformAnalytics: IPostAnalytics[];
     advanced: IAdvancedSettings;
     connectToWeb: {
         scrappedInsights: string[];
@@ -140,6 +142,18 @@ export interface IBlogPost {
     updatedAt: Date;
 
 
+}
+export interface IPostAnalytics {
+    platform: SYSTEM_PLATFORM;
+    siteId: string;
+    organicTraffic: {total: number, improvements: number};
+    pagesPerSession: {total: number};
+    bounceRate: {total: number};
+    crawlError: {total: number};
+    avgPosition: {total: number};
+    score: number;
+    classification: string;
+    lastUpdated: Date;
 }
 
 export interface IGenerationBatchArticle {

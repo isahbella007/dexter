@@ -93,6 +93,7 @@ export class SubscriptionService {
             throw handleError(error, 'startTrialSubscription', { userId, planId });
         }
     }
+
     async createCheckoutSession(planId: string, user: IUser) {
         try {
             const planDetails = await SubscriptionPlan.findById(planId);
@@ -117,6 +118,7 @@ export class SubscriptionService {
                     planId: planId.toString(), 
                     isTrial: 'false'
                 },
+
                 success_url: `${config.appUrl}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
                 cancel_url: `${config.appUrl}/subscription/cancel`
             });
@@ -154,6 +156,12 @@ export class SubscriptionService {
             const user = await User.findById(userId)
             if(!user) throw ErrorBuilder.notFound('No user')
 
+            // ** get the invoice url from the session
+            const invoiceId = session.invoice
+            const invoice = await stripe.invoices.retrieve(invoiceId)
+            const hostedInvoiceUrl = invoice.hosted_invoice_url
+            const invoiceUrl = invoice.invoice_pdf;
+
             // update fields needed to be updated
             // Update user subscription based on session type
         if (isTrial) {
@@ -171,7 +179,14 @@ export class SubscriptionService {
                 autoRenew: true,
                 statusHistory: [{
                     status: SubscriptionStatus.TRIAL,
+                    price: session.amount_total / 100,
+                    paymentMethod: session.payment_method,
+                    invoiceId: session.invoice,
+                    invoiceUrl: invoiceUrl,
+                    hostedInvoiceUrl: hostedInvoiceUrl,
                     date: new Date(),
+                    startDate: new Date(session.subscription.start_date * 1000),
+                    endDate: new Date(session.subscription.current_period_end * 1000),
                     reason: 'Trial started'
                 }]
             };
@@ -190,12 +205,19 @@ export class SubscriptionService {
                 autoRenew: true,
                 statusHistory: [{
                     status: SubscriptionStatus.ACTIVE,
+                    price: session.amount_total / 100,
+                    paymentMethod: session.payment_method,
+                    invoiceId: session.invoice,
+                    invoiceUrl: invoiceUrl,
+                    hostedInvoiceUrl: hostedInvoiceUrl,
                     date: new Date(),
+                    startDate: new Date(session.subscription.start_date * 1000),
+                    endDate: new Date(session.subscription.current_period_end * 1000),
                     reason: 'Subscription started'
                 }]
             };
         }
-        console.log('session =>', JSON.stringify(session))
+        console.log('session =>', JSON.stringify(session, null, 2))
             await user.save()
             return session;
         } catch (error) {
@@ -306,6 +328,7 @@ export class SubscriptionService {
             throw handleError(error, 'cancelSubscription', { userId });
         }
     }
+
     async handleWebhookEvent(event: any, user: IUser) {
         try {
             switch(event.type) {
@@ -345,6 +368,7 @@ export class SubscriptionService {
                 name: user.email,
                 email: user.email,
             });
+            console.log('stripe customer created =>', customer)
             // assign the user the customer primary key from stripe 
             userDetail.stripeCustomerId = customer.id
             await userDetail.save()
@@ -356,12 +380,6 @@ export class SubscriptionService {
         
     }
    
-
-    private async handleTrialEnding(object: any, user: IUser) {
-        // send an email to the user 
-        console.log('we want to send an email to the user')
-        // await emailService.sendEmail(user.email, 'Trial Ending Soon', 'Your trial is ending soon. Please upgrade to continue using our services.')
-    }
 
     private async handleSubscriptionUpdated(subscription: any, user: IUser) {
         console.log('PLEASE LOG SOMETHING SO I KNOW YOU ARE WORKING')
@@ -426,21 +444,6 @@ export class SubscriptionService {
         } catch (error) {
             throw handleError(error, 'handleSubscriptionUpdated', { subscription });
         }
-    }
-
-    private async handleCheckoutCompleted(session: any) {
-        // Implementation
-        console.log('You made it for now yay')
-    }
-
-    private async handleInvoicePaid(invoice: any) {
-        // Implementation
-        return 
-    }
-
-    private async handlePaymentFailed(invoice: any) {
-        // Implementation
-        return
     }
 }
 

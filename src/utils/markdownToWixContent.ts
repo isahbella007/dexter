@@ -30,12 +30,14 @@ interface TextNode {
 }
 
 export function markdownToWixContent(markdown: string): any {
-    const tokens = marked.lexer(markdown);
+    const tokens = marked.lexer(markdown, {gfm: true});
     
     const nodes = tokens.map(token => {
+        console.log('token =>', token.type)
         switch (token.type) {
             case 'heading':
                 return {
+
                     type: "HEADING",
                     id: generateId(),
                     nodes: [createTextNode(token.text, getHeadingDecorations(token.depth))],
@@ -45,12 +47,29 @@ export function markdownToWixContent(markdown: string): any {
                 };
                 
             case 'paragraph':
-                return {
-                    type: "PARAGRAPH",
-                    id: generateId(),
-                    nodes: parseInlineContent(token.text),
-                    paragraphData: {}
-                };
+                // Handle paragraphs that might contain images
+                const inlineNodes = parseInlineContent(token.text);
+                
+                // Check if paragraph contains only an image
+                const hasOnlyImage = inlineNodes.length === 1 && 
+                                  inlineNodes[0].type === "IMAGE";
+
+                return hasOnlyImage 
+                    ? inlineNodes[0] // Return image directly
+                    : {
+                        type: "PARAGRAPH",
+                        id: generateId(),
+                        nodes: inlineNodes,
+                        style: {
+                            paddingTop: "12px",
+                            paddingBottom: "18px"
+                        },
+                        paragraphData: {
+                            textStyle: {
+                                lineHeight: "2"
+                            }
+                        }
+                    };
 
             case 'image':
                 if(isYoutubeLink(token.href)) {
@@ -60,11 +79,22 @@ export function markdownToWixContent(markdown: string): any {
                     type: "IMAGE",
                     id: generateId(),
                     imageData: {
-                        src: token.href,
+                        containerData: {
+                            width: { 
+                                size: "CONTENT"
+                            },
+                            alignment: "CENTER",
+                            textWrap: true,
+                        },
+                        image: { 
+                            src: {
+                                url: token.href,
+                            },
+                            width: 5120,
+                            height: 3413,
+                        },
                         altText: token.text,
-                        width: null,
-                        height: null,
-                        alignment: "CENTER"
+                        caption: token.text // Direct caption property
                     }
                 };
 
@@ -90,17 +120,29 @@ export function markdownToWixContent(markdown: string): any {
                 };
 
             case 'list':
+                console.log('list =>', token)
                 return {
-                    type: "LIST",
+                    type: token.ordered ? "ORDERED_LIST" : "BULLETED_LIST",
                     id: generateId(),
-                    listData: {
-                        type: token.ordered ? "ORDERED" : "UNORDERED",
-                        items: token.items.map((item: { text: string; }) => ({
-                            type: "LIST_ITEM",
+                    nodes: token.items.map((item: { text: string; }) => ({
+                        type: "LIST_ITEM",
+                        id: generateId(),
+                        nodes: [{
+                            type: "PARAGRAPH",  // Wix requires paragraph inside list items
                             id: generateId(),
                             nodes: parseInlineContent(item.text)
-                        }))
-                    }
+                        }]
+                    })),
+                    // Use correct property name based on list type
+                    ...(token.ordered ? {
+                        orderedListData: {
+                            indentation: 0
+                        }
+                    } : {
+                        bulletedListData: {
+                            indentation: 0
+                        }
+                    })
                 };
 
             case 'code':
@@ -171,6 +213,28 @@ function parseInlineContent(text: string, parentDecorations: Decoration[] = []):
 
     inlineTokens.forEach(token => {
         switch (token.type) {
+            case 'image':  // Handle inline images properly
+                flushCurrentText();
+                nodes.push({
+                    type: "IMAGE",
+                    id: generateId(),
+                    imageData: {
+                        containerData: {
+                            width: { size: "CONTENT" },
+                            alignment: "CENTER",
+                            textWrap: true
+                        },
+                        image: {
+                            src: { url: token.href },
+                            width: 5120,
+                            height: 3413
+                        },
+                        altText: token.text,
+                        caption: token.text
+                    }
+                });
+                break;
+                
             case 'text':
                 currentText += token.text;
                 break;

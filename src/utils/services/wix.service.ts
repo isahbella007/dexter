@@ -212,33 +212,53 @@ console.log('token =>', token)
     }
 }
 
-  public async getNewAccessToken(userId: string, wixSite: IWixSite){ 
-    console.log('wixSite =>', wixSite)
-    const response = await axios.post('https://www.wixapis.com/oauth2/token', { 
-      "client_id": this.clientId,
-      "client_secret": this.clientSecret,
-      "grant_type": "client_credentials",
-      "instance_id": wixSite.siteInstanceId
-    }) 
+public async getNewAccessToken(userId: string, wixSite: IWixSite) {
+  try {
+      const response = await axios.post('https://www.wixapis.com/oauth2/token', {
+          "client_id": this.clientId,
+          "client_secret": this.clientSecret,
+          "grant_type": "client_credentials",
+          "instance_id": wixSite.siteInstanceId
+      });
 
-    console.log('response =>', response.data)
-    // update the wixSite with the new access token
-
-    await User.findByIdAndUpdate(userId, { 
-      'platforms.wix.sites': {
-        ...wixSite,
-        siteAccessToken: response.data.access_token
+      // Validate response structure
+      if (!response.data?.access_token || !response.data?.expires_in) {
+          throw new AppError('Invalid token response structure', ErrorType.VALIDATION, 400);
       }
-    })
 
-    return response.data.access_token
+      // Calculate expiration time (expires_in is in seconds)
+      const expiresAt = new Date(Date.now() + response.data.expires_in * 1000);
+
+      // Update only the specific site in the array using arrayFilters
+      await User.findByIdAndUpdate(
+          userId,
+          {
+              $set: {
+                  'platforms.wix.sites.$[elem].siteAccessToken': response.data.access_token,
+                  'platforms.wix.sites.$[elem].siteAccessExpiryTime': expiresAt
+              }
+          },
+          {
+              arrayFilters: [{ 'elem.siteInstanceId': wixSite.siteInstanceId }],
+              new: true
+          }
+      );
+
+      return response.data.access_token;
+  } catch (error) {
+      console.error('Token refresh failed:', error);
+      throw new AppError(
+          'Failed to refresh access token',
+          ErrorType.INTERNAL,
+          500
+      );
   }
+}
 
 
-  public async publishBlogPostToWix(title: string, content: string, accessToken: string, ownerMemberId: string): Promise<any> {
+  public async publishBlogPostToWix(title: string, content: string, accessToken: string, ownerMemberId: string): Promise<{ url: string; slug: string; }> {
     try {
-
-        // 2. Prepare the Wix API request
+        // Create draft post
         const wixResponse = await axios.post(
             'https://www.wixapis.com/blog/v3/draft-posts',
             {
@@ -248,7 +268,7 @@ console.log('token =>', token)
                 memberId: ownerMemberId,
                 publish: true
               },
-              fieldsets: ["URL", "RICH_CONTENT"] // Include fieldsets
+              fieldsets: ["URL", "RICH_CONTENT"]
             },
             {
               headers: {
@@ -258,17 +278,81 @@ console.log('token =>', token)
             }
         );
 
-        return wixResponse.data.draftPost
-      } catch (error:any) {
-        console.log('There is an error that occured while publishing the blog post', error)
+        if (!wixResponse.data?.draftPost?.id) {
+            throw new AppError('Failed to create draft post', ErrorType.VALIDATION, 400);
+        }
+
+        const { id: draftPostId } = wixResponse.data.draftPost;
         
-        throw new AppError(error.message, ErrorType.CONFLICT, error.status || 500)
+        // Publish the draft
+        const publishResponse = await axios.post(
+            `https://www.wixapis.com/blog/v3/draft-posts/${draftPostId}/publish`,
+            { draftPostId: draftPostId },
+            { 
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+
+        if (!publishResponse.data?.postId) {
+            throw new AppError('Failed to publish post', ErrorType.INTERNAL, 503);
+        }
+
+        // Retrieve published post details
+        const publishedPost = await axios.get(
+            `https://www.wixapis.com/blog/v3/posts/${publishResponse.data?.postId}?fieldsets=URL`,
+            { 
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+
+        // console.log('publishedPost =>', publishedPost.data)
+        if (!publishedPost.data?.post?.id) {
+            throw new AppError('Failed to retrieve published post details', ErrorType.NOT_FOUND, 404);
+        }
+
+
+        return {
+            url: `${publishedPost.data.post.url.base}${publishedPost.data.post.url.path}`,
+            slug: publishedPost.data.post.slug,
+        };
+
+    } catch (error: any) {
+        console.error('Blog post publishing failed:', error);
+        
+        // Handle axios error responses
+        if (axios.isAxiosError(error)) {
+          const status = error.response?.status || 500;
+          const message = error.response?.data?.message || 'Wix API communication failed';
+          
+          // Map HTTP status codes to existing error types
+          const errorType = 
+              status === 400 ? ErrorType.VALIDATION :
+              status === 401 ? ErrorType.UNAUTHORIZED :
+              status === 403 ? ErrorType.FORBIDDEN :
+              status === 404 ? ErrorType.NOT_FOUND :
+              status === 409 ? ErrorType.CONFLICT :
+              status === 402 ? ErrorType.PAYMENT_REQURIED :
+              status === 429 ? ErrorType.RATE_LIMIT :
+              status === 405 ? ErrorType.METHOD_NOT_ALLOWED :
+              ErrorType.INTERNAL;
+
+          throw new AppError(message, errorType, status);
+        }
+      
+        // Re-throw existing AppError instances
+        if (error instanceof AppError) {
+            throw error;
+        }
+        
+        throw new AppError('Failed to publish blog post', ErrorType.INTERNAL, 500);
     }
   }
-
- 
-
-
 }
   
 

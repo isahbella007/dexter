@@ -7,6 +7,7 @@ import { AppError } from '../../../utils/errors/AppError';
 import { User } from '../../../models/User';
 import { IWixSite } from '../../../models/interfaces/UserInterface';
 import { markdownToWixContent } from '../../../utils/markdownToWixContent';
+import { create, toHTMLString } from '@wordpress/rich-text';
 
 export class WixPublishService {
   private wixService: WixService;
@@ -15,13 +16,11 @@ export class WixPublishService {
     this.wixService = new WixService();
   }
 
-  private convertMarkdownToHTML(markdown: string): string {
-    marked.setOptions({
-      breaks: true,
-      gfm: true,
-    });
-    return marked(markdown) as string;
+  private isTokenExpired(expiryTime: Date | null | undefined): boolean {
+    if (!expiryTime) return true;
+    return new Date() >= new Date(expiryTime);
   }
+
 
 
   async publishPost(userId: string, blogPostId: string, siteId: string) {
@@ -45,46 +44,47 @@ export class WixPublishService {
         const wixSite = wixPlatform.sites.find((site: IWixSite) => site.siteId === siteId)
         if(!wixSite) throw ErrorBuilder.notFound('Wix site not found')
 
-        const accessToken = wixSite.siteAccessToken
+        let accessToken = wixSite.siteAccessToken
         const ownerMemberId = wixSite.ownerMemberId
+        const siteAccessExpiryTime = wixSite.siteAccessExpiryTime
         
         if(!accessToken || !ownerMemberId) throw ErrorBuilder.notFound('Wix access token or owner member id not found')
+        
+        if(siteAccessExpiryTime == null || this.isTokenExpired(siteAccessExpiryTime)){
+          accessToken = await this.wixService.getNewAccessToken(userId, wixSite)
+        }
         // Convert markdown content to HTML
         const htmlContent = markdownToWixContent(blogPost.content);
-        // const otherContent = this.convertMarkdownToHTML(blogPost.content)
 
 
-        // return htmlContent
-        // get the new access token for the site 
-        const newAccessToken = await this.wixService.getNewAccessToken(userId, wixSite)
-        console.log('newAccessToken =>', newAccessToken)
+        return htmlContent
 
-        const publishedData = await this.wixService.publishBlogPostToWix(
-            blogPost.title,
-            htmlContent,
-            newAccessToken,
-            ownerMemberId
-        );
+        // const publishedData = await this.wixService.publishBlogPostToWix(
+        //   blogPost.title,
+        //   htmlContent,
+        //   accessToken,
+        //   ownerMemberId
+        // );
 
 
-        console.log('wix response =>', publishedData)
-        // Update blog post with publication status
+        // console.log('wix response =>', publishedData)
+        // // Update blog post with publication status
 
-        await BlogPost.findByIdAndUpdate(blogPostId, {
-          $push: {
+        // await BlogPost.findByIdAndUpdate(blogPostId, {
+        //   $push: {
 
-            platformPublications: {
-              platform: SYSTEM_PLATFORM.wix,
-              status: PUBLISH_STATUS.published,
-              publishedSiteId: String(siteId),
-              publishedUrl: `${publishedData?.url?.base}${publishedData?.url?.path}`,
-              publishedSlug: publishedData?.url.path,
-              publishedAt: new Date()
+        //     platformPublications: {
+        //       platform: SYSTEM_PLATFORM.wix,
+        //       status: PUBLISH_STATUS.published,
+        //       publishedSiteId: String(siteId),
+        //       publishedUrl: publishedData?.url,
+        //       publishedSlug: publishedData?.slug,
+        //       publishedAt: new Date()
 
 
-            }
-          }
-        });
+        //     }
+        //   }
+        // });
     } catch (error:any) {
         // Update blog post with failed status
         await BlogPost.findByIdAndUpdate(blogPostId, {

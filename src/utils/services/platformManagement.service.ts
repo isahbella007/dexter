@@ -1,5 +1,5 @@
 import { SYSTEM_PLATFORM } from "../../models/BlogPost"
-import { IUser } from "../../models/interfaces/UserInterface"
+import { IUser, IWixSite } from "../../models/interfaces/UserInterface"
 import { User } from "../../models/User"
 import { ErrorBuilder } from "../errors/ErrorBuilder"
 export class PlatformManagementService { 
@@ -46,11 +46,26 @@ export class PlatformManagementService {
                 (site: { siteId: number }) => site.siteId === Number(siteId)
               );
               if (!site) {
-                throw ErrorBuilder.badRequest('WordPress site not found');
+                throw ErrorBuilder.badRequest('Site Id does not match any of the sites for the platform');
             } 
+            return site
+
+        }
+        if(platform === SYSTEM_PLATFORM.wix) { 
+            if(!siteId) { 
+                throw ErrorBuilder.badRequest('Site id is required')
+            }
+            const site = user?.platforms?.wix?.sites?.find(
+                (site: IWixSite) => site.siteId == siteId
+            );
+            if (!site) {
+                throw ErrorBuilder.badRequest('Site Id does not match any of the sites for the platform');
+            }
+
             return site
         }
        return null
+
     }
 }
 

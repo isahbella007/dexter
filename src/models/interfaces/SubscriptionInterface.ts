@@ -16,7 +16,14 @@ export interface ISubscription {
     statusHistory: {
       status: SubscriptionStatus;
       date: Date;
+      startDate?: Date;
+      endDate?: Date;
       reason?: string;
+      paymentMethod?: string;
+      invoiceId?: string;
+      invoiceUrl?: string;
+      hostedInvoiceUrl?: string;
+      price?: number;
     }[];
 }
 

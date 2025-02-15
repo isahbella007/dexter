@@ -32,19 +32,15 @@ interface IAnalyticsData {
 
 const analyticsSchema = new Schema({
     pageVisitsScore: {
-        organic: { type: Number, default: 0 },
         total: { type: Number, default: 0 }
     },
     avgDurationScore: {
-        organic: { type: Number, default: 0 },
         total: { type: Number, default: 0 }
     },
     bounceRateScore: {
-        organic: { type: Number, default: 0 },
         total: { type: Number, default: 0 }
     },
     topPagesScore: {
-        organic: { type: Number, default: 0 },
         total: { type: Number, default: 0 }
     },
     megaTagStatusScore: {
@@ -52,8 +48,13 @@ const analyticsSchema = new Schema({
         totalUrl: { type: Number, default: 0 }
     },
     totalKeywords: {
-        organic: { type: Number, default: 0 },
         total: { type: Number, default: 0 }
+    },
+    dashboard: {
+        DVS: { type: Number, default: 0 },
+        domain: { type: Number, default: 0 },
+        website: { type: Number, default: 0 },
+        classification: { type: Object, default: {} }
     },
     siteUrl: { type: String, required: true },
     userId: { type: String, required: true }

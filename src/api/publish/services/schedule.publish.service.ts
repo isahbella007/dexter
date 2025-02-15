@@ -3,15 +3,16 @@ import { PostSchedule } from '../../../models/PostSchedule';
 import { BlogPost, PUBLISH_STATUS, SYSTEM_PLATFORM } from '../../../models/BlogPost';
 import { ErrorBuilder } from '../../../utils/errors/ErrorBuilder';
 import { User } from '../../../models/User';
-import { IWordPressSite } from '../../../models/interfaces/UserInterface';
+import { IWixSite, IWordPressSite } from '../../../models/interfaces/UserInterface';
 import { shopifyPublishService, ShopifyPublishService } from './shopify.publish.service';
+import { wixPublishService, WixPublishService } from './wix.publish.service';
 
 
 export class SchedulePublishService {
   constructor(
     private wordpressPublishService: WordPressPublishService,
-    // private wixPublishService: WixPublishService
-    private shopifyPublishService: ShopifyPublishService
+    private shopifyPublishService: ShopifyPublishService,
+    private wixPublishService: WixPublishService
 ) {}
 
   async schedulePost(
@@ -55,9 +56,16 @@ export class SchedulePublishService {
         if(!shopifyId) throw ErrorBuilder.notFound('Shopify ID not found')
     }
 
+    // ** validate if the siteId belongs to the user in the wix platform
+    if(platform === SYSTEM_PLATFORM.wix){ 
+        const wixId = user?.platforms?.wix?.sites.find((site: IWixSite) => site.siteId == siteId)
+        if(!wixId) throw ErrorBuilder.badRequest('Site Id not found for the platform')
+    }
+
     // check if the blog post exists
     const blogPost = await BlogPost.findById(blogPostId)
     if(!blogPost) throw ErrorBuilder.badRequest('Blog post not found')
+
 
     
     // Create schedule entries
@@ -97,7 +105,7 @@ export class SchedulePublishService {
             processingLock: new Date()
         });
       try {
-        //** */ modify this to handle other platforms
+        //** handle wordpress platform
         if(schedule.platform === SYSTEM_PLATFORM.wordpress){
             if(!schedule.siteId){
                 throw ErrorBuilder.badRequest('Site ID is required for WordPress posts');
@@ -109,6 +117,7 @@ export class SchedulePublishService {
           );
         }
 
+        // ** handle shopify platform
         if(schedule.platform === SYSTEM_PLATFORM.shopify){ 
             if(!schedule.siteId){
                 throw ErrorBuilder.badRequest('Site ID is required for Shopify posts');
@@ -121,6 +130,19 @@ export class SchedulePublishService {
             )
         }
 
+        // ** handle wix platform
+        if(schedule.platform === SYSTEM_PLATFORM.wix){ 
+          if(!schedule.siteId){
+              throw ErrorBuilder.badRequest('Site ID is required for Wix posts');
+          }
+          await this.wixPublishService.publishPost(
+            schedule.userId,
+            schedule.blogPostId.toString(),
+            schedule.siteId
+          )
+        }
+
+        // ** update the schedule status to completed
         await PostSchedule.findByIdAndUpdate(schedule._id, {
           status: PUBLISH_STATUS.completed,
           updatedAt: new Date(), 
@@ -138,4 +160,4 @@ export class SchedulePublishService {
   }
 } 
 
-export const schedulePublishService = new SchedulePublishService(wordpressPublishService, shopifyPublishService);
+export const schedulePublishService = new SchedulePublishService(wordpressPublishService, shopifyPublishService, wixPublishService);

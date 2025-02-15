@@ -20,6 +20,7 @@ const WixSiteSchema = new Schema({
     ga4TrackingCode: { type: String, default: null }, //TODO:: consider encrypting ewoooo
     // **Add this here because if the user is to install the app on various sites, I am assuming that each site will have a different access token as well as instance id
     siteAccessToken: { type: String, required: true },
+    siteAccessExpiryTime: {type: Date, default: null},
     siteInstanceId: { type: String, required: true },
     ownerMemberId: { type: String, required: false },
   
@@ -99,6 +100,7 @@ const userSchema = new Schema<IUser>(
         },
         subscription: { type: subscriptionSchema, default: () => ({}) },
         settings: { type: userSettingsSchema, default: () => ({}) },
+        role: {type: String, enum: ['admin', 'user'], default: 'user'}
     }
 )
 
@@ -116,7 +118,7 @@ userSchema.methods.toJSON = function() {
     // Remove payment and status history from subscription
     if (userObject.subscription) {
         delete userObject.subscription.paymentHistory;
-        delete userObject.subscription.statusHistory;
+        // delete userObject.subscription.statusHistory;
         delete userObject.subscription.startDate;
         delete userObject.subscription.createdAt;
         delete userObject.subscription.updatedAt;

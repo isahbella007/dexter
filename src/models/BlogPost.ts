@@ -93,7 +93,30 @@ const blogPostSchema = new Schema<IBlogPost>({
         publishedUrl: { type: String },
         publishedSlug: { type: String },
         publishedAt: { type: Date },
-        error: { type: String }
+        error: { type: String },
+    }],
+    platformAnalytics: [{
+        platform: { type: String, enum: Object.values(SYSTEM_PLATFORM), required: true },
+        siteId: { type: String, required: true },
+        organicTraffic: {
+            total: { type: Number, required: false },    
+            improvements: { type: Number, required: false },
+        },
+        pagesPerSession: {
+            total: { type: Number, required: false },
+        },
+        bounceRate: {
+            total: { type: Number, required: false },
+        },
+        crawlError: {
+            total: { type: Number, required: false },
+        },  
+        avgPosition: {
+            total: { type: Number, required: false },
+        },
+        score: { type: Number, required: false },
+        classification: { type: String, required: false },
+        lastUpdated: { type: Date }
     }],
     linking: {type: blogPostLinkingSchema, default: () => ({})},
     // advanced: {type: blogPostAdvancedSchema, default: () => ({})},

@@ -54,8 +54,9 @@ export interface IUser extends Document{
       wordpress?: IWordPressPlatform
       wix?: IWixPlatform
     } 
+    role: string
     comparePassword(password:string): Promise<boolean>
-
+    
 }
 
 export interface IUserSettings extends Document {
@@ -87,6 +88,7 @@ export interface IWixSite {
   url: string;
   ga4TrackingCode: string | null;
   siteAccessToken: string;
+  siteAccessExpiryTime: Date,
   siteInstanceId: string;
   ownerMemberId: string | null;
 }

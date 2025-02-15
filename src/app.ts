@@ -16,6 +16,8 @@ import cookieParser from 'cookie-parser';
 import subscriptionRoutes from './api/subscription/subscription.routes';
 import { SubscriptionController } from './api/subscription/subscription.controller';
 import { schedulerService } from './utils/services/scheduler.service';
+import { insertAdminUser } from './utils/helpers/insertUser';
+import { User } from './models/User';
 
 const app = express();
 
@@ -69,7 +71,7 @@ app.use(ErrorHandler.handle);
 
 // Connect to MongoDB
 connectToDatabase()
-  .then(() => {
+  .then(async () => {
     logger.info('MongoDB connected successfully');
     // call the function that then creates the subscriptions used in the system with their product/plan id for free and pro
     // createSubPlan()
@@ -77,6 +79,13 @@ connectToDatabase()
     schedulerService.start().catch((error) => {
       logger.error('Failed to start scheduler:', error);
     });
+    // await insertAdminUser()
+    // const result = await User.updateMany(
+    //   { role: { $exists: false } }, // Find users missing the 'role' field
+    //   { $set: { role: 'user' } }   // Set the 'role' to 'user'
+    // );
+
+    // console.log(`Updated ${result.modifiedCount} users.`);
   })
   .catch((error) => {
     logger.error('Failed to connect to MongoDB:', error);

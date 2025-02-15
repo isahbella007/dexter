@@ -30,6 +30,19 @@ export class GoogleAnalyticsService {
             refresh_token: refreshToken,
             expiry_date: expiryDate,
         });
+
+        // Add token refresh handler
+        this.oAuth2Client.on('tokens', (tokens) => {
+            if (tokens.refresh_token) {
+                // Store the new refresh token if it's provided
+                this.oAuth2Client.setCredentials({
+                    ...this.oAuth2Client.credentials,
+                    refresh_token: tokens.refresh_token,
+                });
+            }
+        });
+
+
         this.analyticsAdmin = google.analyticsadmin('v1alpha');
         this.analyticsData = google.analyticsdata('v1beta');
         this.searchConsole = google.searchconsole({
@@ -38,6 +51,22 @@ export class GoogleAnalyticsService {
         });
         
     }
+
+     // Add method to refresh token if expired
+     private async refreshTokenIfNeeded() {
+        const credentials = this.oAuth2Client.credentials;
+        if (!credentials.expiry_date || Date.now() > credentials.expiry_date) {
+            try {
+                const { credentials: newCredentials } = await this.oAuth2Client.refreshAccessToken();
+                this.oAuth2Client.setCredentials(newCredentials);
+                return newCredentials;
+            } catch (error: any) {
+                throw new AppError('Failed to refresh access token', ErrorType.UNKNOWN, error.status, error.status)
+            }
+        }
+        return credentials;
+    }
+
     // get all the user's google analytics accounts
     async fetchUserAccounts() {
         const response = await this.analyticsAdmin.accounts.list({
@@ -139,237 +168,6 @@ export class GoogleAnalyticsService {
             return response.data;
         } catch (error: any) {
             console.error('Error fetching analytics data:', error);
-            throw new AppError(error.errors[0].message, ErrorType.UNKNOWN, error.status)
-        }
-    }
-
-    async fetchGoogleAnalyticsDataForWordPress(slugs: string[], ga4PropertyId: string) {
-        try {
-            // Ensure the property ID is numeric and properly formatted
-            const formattedPropertyId = `properties/${ga4PropertyId}` 
-
-            // Fetch organic traffic data
-            const organicResponse = await this.analyticsData.properties.runReport({
-                auth: this.oAuth2Client,
-                property: formattedPropertyId,
-                requestBody: {
-                    dateRanges: [{ startDate: '30daysAgo', endDate: 'today' }],
-                    metrics: [
-                        { name: 'screenPageViews' },
-                        { name: 'activeUsers' },
-                        { name: 'screenPageViewsPerSession' },
-                        { name: 'bounceRate' }
-                    ],
-                    dimensions: [{ name: 'pagePath' }],
-                    dimensionFilter: {
-                        andGroup: {
-                            expressions: [
-                                // Filter for slugs
-                                {
-                                    orGroup: {
-                                        expressions: slugs.map(slug => ({
-                                            filter: {
-                                                fieldName: 'pagePath',
-                                                stringFilter: {
-                                                    matchType: 'CONTAINS',
-                                                    value: slug
-                                                }
-                                            }
-                                        }))
-                                    }
-                                },
-                                // Filter for organic traffic
-                                {
-                                    filter: {
-                                        fieldName: 'sessionSource',
-                                        inListFilter: {
-                                            values: [
-                                                'google', // Google
-                                                
-                                            ]
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            });
-
-            // Fetch total traffic data
-            const totalResponse = await this.analyticsData.properties.runReport({
-                auth: this.oAuth2Client,
-                property: formattedPropertyId,
-                requestBody: {
-                    dateRanges: [{ startDate: '30daysAgo', endDate: 'today' }],
-                    metrics: [
-                        { name: 'screenPageViews' },
-                        { name: 'activeUsers' },
-                        { name: 'screenPageViewsPerSession' },
-                        { name: 'bounceRate' }
-                    ],
-                    dimensions: [{ name: 'pagePath' }],
-                    dimensionFilter: {
-                        orGroup: {
-                            expressions: slugs.map(slug => ({
-                                filter: {
-                                    fieldName: 'pagePath',
-                                    stringFilter: {
-                                        matchType: 'CONTAINS',
-                                        value: slug
-                                    }
-                                }
-                            }))
-                        }
-                    }
-                }
-            });
-
-            // Aggregate organic traffic data
-            const organicTotals = organicResponse.data.rows?.reduce(
-                (acc, row) => {
-                    acc.screenPageViews += parseInt(row.metricValues?.[0]?.value || '0');
-                    acc.activeUsers += parseInt(row.metricValues?.[1]?.value || '0');
-                    acc.screenPageViewsPerSession += parseFloat(row.metricValues?.[2]?.value || '0');
-                    acc.bounceRate += parseFloat(row.metricValues?.[3]?.value || '0');
-                    return acc;
-                },
-                {
-                    screenPageViews: 0,
-                    activeUsers: 0,
-                    screenPageViewsPerSession: 0,
-                    bounceRate: 0,
-                }
-            );
-
-            // Aggregate total traffic data
-            const totalTotals = totalResponse.data.rows?.reduce(
-                (acc, row) => {
-                    acc.screenPageViews += parseInt(row.metricValues?.[0]?.value || '0');
-                    acc.activeUsers += parseInt(row.metricValues?.[1]?.value || '0');
-                    acc.screenPageViewsPerSession += parseFloat(row.metricValues?.[2]?.value || '0');
-                    acc.bounceRate += parseFloat(row.metricValues?.[3]?.value || '0');
-                    return acc;
-                },
-                {
-                    screenPageViews: 0,
-                    activeUsers: 0,
-                    screenPageViewsPerSession: 0,
-                    bounceRate: 0,
-                }
-            );
-
-            // Calculate averages for screenPageViewsPerSession and bounceRate
-            if (organicResponse.data.rows?.length) {
-                organicTotals!.screenPageViewsPerSession /= organicResponse.data.rows.length;
-                organicTotals!.bounceRate /= organicResponse.data.rows.length;
-            }
-            if (totalResponse.data.rows?.length) {
-                totalTotals!.screenPageViewsPerSession /= totalResponse.data.rows.length;
-                totalTotals!.bounceRate /= totalResponse.data.rows.length;
-            }
-
-            // Return the comparison data
-            return {
-                organicTraffic:{
-                    organic: organicTotals!.screenPageViews,
-                    total: totalTotals!.screenPageViews
-                },
-                activeUsers: {
-                    organic: organicTotals!.activeUsers,
-                    total: totalTotals!.activeUsers
-                },
-                pagesPerSession: {
-                    organic: organicTotals!.screenPageViewsPerSession,
-                    total: totalTotals!.screenPageViewsPerSession
-                },
-                bounceRate: {
-                    organic: 0,
-                    total: totalTotals!.bounceRate
-                }
-            };
-        } catch (error: any) {
-            console.error('Error fetching WordPress analytics:', error);
-            throw new AppError(error.errors[0].message, ErrorType.UNKNOWN, error.status)
-        }
-    }
-
-    async fetchSearchConsoleDataForWordPress(siteUrls: string[], slugs: string[]) {
-        try {
-            // Initialize totals
-            let totalPosition = 0;
-            let totalRows = 0;
-            let totalCrawlErrors = 0;
-
-            // Fetch data for all site URLs concurrently
-            const [positionResponses] = await Promise.all([
-                // Fetch average page position
-                Promise.all(
-                    siteUrls.map(siteUrl => 
-                        this.searchConsole.searchanalytics.query({
-                            siteUrl,
-                            requestBody: {
-                                startDate: '30daysAgo',
-                                endDate: 'today',
-                                dimensions: ['page'],
-                                dimensionFilterGroups: [{
-                                    filters: slugs.map(slug => ({
-                                        dimension: 'page',
-                                        operator: 'contains',
-                                        expression: slug
-                                    }))
-                                }]
-                            }
-                        })
-                    )
-                ),
-                // Fetch crawl errors
-                
-            ]);
-
-            // Aggregate position data
-            for (const response of positionResponses) {
-                if (response.data.rows) {
-                    totalPosition += response.data.rows.reduce((sum, row) => sum + (row.position || 0), 0);
-                    totalRows += response.data.rows.length;
-                }
-            }
-
-            // Aggregate crawl errors
-            
-
-            // Calculate average position
-            const averagePosition = totalRows > 0 ? (totalPosition / totalRows).toFixed(2) : '0.00';
-
-            return {
-                averagePosition,
-                crawlErrors: totalCrawlErrors
-            };
-        } catch (error: any ) {
-            console.error('Error fetching Search Console data:', error);
-            throw new AppError(error.errors[0].message, ErrorType.UNKNOWN, error.status)
-        }
-    }
-    
-    async fetchAnalyticsForWordPress(slugs: string[], ga4PropertyId: string, siteUrl: string[]) {
-        try {
-            // Fetch Google Analytics data (existing code)
-            const analyticsData = await this.fetchGoogleAnalyticsDataForWordPress(slugs, ga4PropertyId);
-
-            // Fetch Search Console data
-            // const searchConsoleData = await this.fetchSearchConsoleDataForWordPress(siteUrl, slugs);
-
-            const searchConsoleData = {
-                averagePosition: 7000,
-                crawlErrors: 0
-            }
-            // Return combined data
-            return {
-                ...analyticsData,
-                ...searchConsoleData
-            };
-        } catch (error: any) {
-            console.error('Error fetching WordPress analytics:', error);
             throw new AppError(error.errors[0].message, ErrorType.UNKNOWN, error.status)
         }
     }
@@ -497,26 +295,6 @@ export class GoogleAnalyticsService {
             ]);
 
 
-            
-            const [organicPageViews, organicSessionEngagementDuration, organicActiveUsers, organicBounceRate] = await Promise.all([
-                this.processInBatches(urls as unknown as string[], batchSize, delayMs, url => 
-                    this.getOrganicGA4Metric('screenPageViews', [url], ga4PropertyId)
-                ),
-
-                // **the sessionEngagmentDuration and sessions is to get the avgDuration
-                this.processInBatches(urls as unknown as string[], batchSize, delayMs, url => 
-
-                    this.getGA4Metric('userEngagementDuration', [url], ga4PropertyId)
-                ),
-                this.processInBatches(urls as unknown as string[], batchSize, delayMs, url => 
-
-                    this.getGA4Metric('activeUsers', [url], ga4PropertyId)
-                ),
-                this.processInBatches(urls as unknown as string[], batchSize, delayMs, url => 
-                    this.getOrganicGA4Metric('bounceRate', [url], ga4PropertyId)
-                ),
-            ]);
-
              // Process metaTagStatus and totalKeywords in batches
             const metaTagStatusResults = await this.processInBatches(urls as unknown as string[], batchSize, delayMs, async url => {
                 const result = await this.getMetaTagStatusForUrls([url]);
@@ -531,55 +309,22 @@ export class GoogleAnalyticsService {
             const totalActiveUsers = activeUsers.reduce((sum, val) => sum + val, 0) || 0;
             const totalAvgDuration = totalSessionEngagementDuration / totalActiveUsers;
 
-
-            const organicTotalSessionEngagementDuration = organicSessionEngagementDuration.reduce((sum, val) => sum + val, 0) || 0;
-            const organicTotalActiveUsers = organicActiveUsers.reduce((sum, val) => sum + val, 0) || 0;
-            const organicAvgDuration = organicTotalSessionEngagementDuration / organicTotalActiveUsers;
-
-
             console.log('metaTagStatusResults is', metaTagStatusResults);
             console.log('totalKeywordsResults is', totalKeywordsResults);
 
            
-
-            console.log('--------------------------------------------')
-            console.log('organicPageViews is', organicPageViews);
-            console.log('totalPageViews is', pageViews);
-
-            console.log('--------------------------------------------')
-            console.log('organicAvgDuration is', organicAvgDuration);
-            console.log('totalAvgDuration is', totalAvgDuration);
-
-
-
-            console.log('--------------------------------------------') 
-            console.log('organicBounceRate is', organicBounceRate);
-            console.log('totalBounceRate is', bounceRate);
-
-            console.log('--------------------------------------------')
-          
-            
-
-           
             return {
                 pageVisitsScore: {
-                    organic: organicPageViews.reduce((sum, val) => sum + val, 0) || 0,
-
 
                     total: pageViews.reduce((sum, val) => sum + val, 0) || 0
                 },
                 avgDurationScore: {
-                    organic: organicAvgDuration || 0,
                     total: totalAvgDuration || 0
                 },
                 bounceRateScore: {
-                    organic: organicBounceRate.reduce((sum, val) => sum + val, 0) || 0,
                     total: bounceRate.reduce((sum, val) => sum + val, 0) || 0
                 },
                 topPagesScore: {
-                    organic: (organicPageViews.reduce((sum, val) => sum + val, 0) +
-                                organicAvgDuration +
-                              organicBounceRate.reduce((sum, val) => sum + val, 0)) || 0,
                     total: (pageViews.reduce((sum, val) => sum + val, 0) +
                             totalAvgDuration +
                             bounceRate.reduce((sum, val) => sum + val, 0)) || 0
@@ -590,9 +335,7 @@ export class GoogleAnalyticsService {
                     totalUrl: urls.length || 0
                 },
 
-
                 totalKeywords: {
-                    organic: totalKeywordsResults.reduce((sum, val) => sum + val, 0) || 0,
                     total: totalKeywordsResults.reduce((sum, val) => sum + val, 0) || 0
                 }
 
@@ -600,12 +343,12 @@ export class GoogleAnalyticsService {
         } catch (error) {
             console.error('Error fetching metrics:', error);
             return {
-                pageVisitsScore: { organic: 0, total: 0 },
-                avgDurationScore: { organic: 0, total: 0 },
-                bounceRateScore: { organic: 0, total: 0 },
-                topPagesScore: { organic: 0, total: 0 },
+                pageVisitsScore: { total: 0 },
+                avgDurationScore: { total: 0 },
+                bounceRateScore: { total: 0 },
+                topPagesScore: { total: 0 },
                 megaTagStatusScore: { withMetaTags: 0, totalUrl: 0 },
-                totalKeywords: { organic: 0, total: 0 }
+                totalKeywords: { total: 0 }
             };
         }
     }
@@ -889,62 +632,33 @@ export class GoogleAnalyticsService {
             // console.log('All Pages:', pages);
             return pages;
         } catch (error: any) {
-            console.error('Error fetching all pages:', error);
-            throw new Error(`Failed to fetch all pages: ${error.message}`);
-        }
-    }
+            console.error('Google Search Console API Error:', error);
 
-    private async getSiteIssues(urls:string[]){ 
-        try {
-            let withMetaTags = 0;
-            // ** generate the siteUrl from the first url assuming all urls belong to the same site
-            const siteUrl = new URL(urls[0]).origin + '/';
-            //  console.log('siteUrl is', siteUrl);
-            const normalizedUrls = urls.map(url => url.endsWith('/') ? url : `${url}/`);
-            // console.log(normalizedUrls);
-            // Fetch data for all URLs concurrently
-
-
-            const inspectionResults = await Promise.all(
-                normalizedUrls.map(url => 
-                    
-                    this.searchConsole.urlInspection.index.inspect({
-                        requestBody: {
-                            inspectionUrl: url, 
-                            siteUrl: 'https://bestdogresources.com/'
-                        }
-
-                    })
-                )
-
-            );
-            inspectionResults.forEach(result => {
-                const mobileIssues = result.data.inspectionResult?.mobileUsabilityResult?.issues;
-                const ampIssues = result.data.inspectionResult?.ampResult?.issues;
-                const richIssues = result.data.inspectionResult?.richResultsResult?.detectedItems?.map(item => item.items?.map(item => item.issues));
-            
-                if (mobileIssues?.length) {
-                    console.log('Mobile Usability Issues:', mobileIssues);
+            // Handle Google API error structure
+            if (error.errors && Array.isArray(error.errors)) {
+                const googleError = error.errors[0];
+                
+                if (googleError.reason === 'forbidden') {
+                    throw ErrorBuilder.forbidden(
+                        `Permission denied for site ${siteUrl}. Ensure:\n` +
+                        '1. The site is verified in Google Search Console\n' +
+                        '2. Your service account has "Search Console API" access\n' +
+                        '3. The site is added to your Search Console property list'
+                    );
                 }
-                if (ampIssues?.length) {
-                    console.log('AMP Issues:', ampIssues);
-                }
-                if (richIssues?.length) {
-                    console.log('Rich Issues:', richIssues.flat());
-                }
-            });
-           
-
-
-           return 'done'
-        } catch (error: any) {
-            console.error('Error fetching meta tag status:', error);
-            return{ 
-                withMetaTags: 0,
-                total: 0
             }
+
+            // Handle URL validation error
+            if (error.message.includes('Invalid site URL')) {
+                throw ErrorBuilder.badRequest('Invalid site URL format - must start with http:// or https://');
+            }
+
+
+            // Handle other API errors
+            throw new AppError(`Failed to fetch pages: ${error.message || 'Unknown API error'}`, ErrorType.UNKNOWN, 500);
         }
     }
+
 
     // Helper function to format date to YYYY-MM-DD in PT time
     private formatDateToPT(date: Date): string {
@@ -974,4 +688,275 @@ export class GoogleAnalyticsService {
         }
         return results;
     }
+
+    public async getPostMetrics( ga4PropertyId: string, slugs: string[], siteUrls: string[]) { 
+        try {
+            await this.refreshTokenIfNeeded();
+            const [pageViews, sessions, bounceRate] = await Promise.all([
+                this.processInBatches(slugs, 4, 1000, url => 
+                    this.getGA4Metric('screenPageViews', [url], ga4PropertyId)
+                ),
+                this.processInBatches(slugs, 4, 1000, url => 
+                    this.getGA4Metric('sessions', [url], ga4PropertyId)
+                ),
+                this.processInBatches(slugs, 4, 1000, url => 
+                    this.getGA4Metric('bounceRate', [url], ga4PropertyId)
+                ),
+            ]);
+
+            const oldViews = await this.processInBatches(slugs, 4, 1000, url => 
+                this.getOldGA4Metric('screenPageViews', [url], ga4PropertyId)
+            )
+    
+            const crawlError = await this.processInBatches(siteUrls as unknown as string[], 4, 1000, async url => {
+                const result = await this.getCrawlMetrics([url]);
+                return result.crawlError;
+            });
+
+            const avgPosition = await this.processInBatches(siteUrls as unknown as string[], 4, 1000, async url => {
+                const result = await this.getAvgPosition([url]);
+                return result.averagePosition;
+            });
+            // Calculate pages per session
+    
+            const totalPagesPerSession = sessions.reduce((sum, val) => sum + val, 0) > 0 
+                ? pageViews.reduce((sum, val) => sum + val, 0) / sessions.reduce((sum, val) => sum + val, 0) 
+                : 0;
+
+              // Calculate improvement for each post
+            const improvements = pageViews.map((current, index) => {
+                const previous = oldViews[index];
+                if (previous > 0) {
+                    return ((current - previous) / previous) * 100;
+                } else if (current > 0) {
+                    return 100; // Infinite improvement
+                }
+                return 0;
+            });
+    
+            console.log('improvements are', improvements)
+            return { 
+                organicTraffic: {
+                    total: pageViews.reduce((sum, val) => sum + val, 0) || 0,
+                    improvements: improvements.reduce((sum, val) => sum + val, 0) || 0
+                },
+                pagesPerSession: { 
+                    total: totalPagesPerSession
+                },
+                bounceRate: {
+                    total: bounceRate.reduce((sum, val) => sum + val, 0) || 0
+                },
+                crawlError:{
+                    total: crawlError.reduce((sum, val) => sum + val, 0) || 0
+                }, 
+                avgPosition: {
+                    total: avgPosition.reduce((sum, val) => sum + val, 0) || 0
+                }, 
+                oldViews: {
+                    total: oldViews.reduce((sum, val) => sum + val, 0) || 0
+                }
+            };
+        } catch (error) {
+            console.error('Error in getPostMetrics:', error);
+
+            return {
+                organicTraffic: { total: 0, improvements: 0 },
+                pagesPerSession: { total: 0 },
+                bounceRate: { total: 0 },
+                crawlError: { total: 0 },
+                avgPosition: { total: 0 },
+                oldViews: { total: 0 }
+            };
+        }
+    }
+
+    public async getCrawlMetrics(urls: string[]) { 
+        try {
+            let crawlCount = 0
+            // ** generate the siteUrl from the first url assuming all urls belong to the same site
+            const siteUrl = new URL(urls[0]).origin + '/';
+            const normalizedUrls = urls.map(url => url.endsWith('/') ? url : `${url}/`);
+
+            console.log('the siteUrl and normalizedUrls are', siteUrl, normalizedUrls)
+            const inspectionResults = await Promise.all(
+                normalizedUrls.map(url => 
+                    
+                    this.searchConsole.urlInspection.index.inspect({
+                        requestBody: {
+                            inspectionUrl: url, 
+                            siteUrl: siteUrl
+                        }
+
+                    })
+                )
+
+            );
+
+            inspectionResults.forEach(result => {
+                const indexStatusResult = result?.data?.inspectionResult?.indexStatusResult;
+    
+                if (!indexStatusResult) return {crawlError: 0}; // Prevents accessing undefined properties
+                // Check for critical crawl errors
+                if (
+                    indexStatusResult?.verdict === 'FAIL' ||
+                    indexStatusResult?.robotsTxtState === 'DISALLOWED' ||
+                    indexStatusResult?.indexingState === 'BLOCKED_BY_META_TAG' ||
+                    indexStatusResult?.indexingState === 'BLOCKED_BY_HTTP_HEADER' ||
+                    indexStatusResult?.pageFetchState === 'SOFT_404' ||
+                    indexStatusResult?.pageFetchState === 'BLOCKED_ROBOTS_TXT' ||
+                    indexStatusResult?.pageFetchState === 'NOT_FOUND' ||
+                    indexStatusResult?.pageFetchState === 'ACCESS_DENIED' ||
+                    indexStatusResult?.pageFetchState === 'SERVER_ERROR' ||
+                    indexStatusResult?.pageFetchState === 'REDIRECT_ERROR' ||
+                    indexStatusResult?.pageFetchState === 'ACCESS_FORBIDDEN' ||
+                    indexStatusResult?.pageFetchState === 'BLOCKED_4XX' ||
+                    indexStatusResult?.pageFetchState === 'INTERNAL_CRAWL_ERROR' ||
+                    indexStatusResult?.pageFetchState === 'INVALID_URL'
+                ) {
+                    crawlCount++;
+                }
+            });
+    
+            return { crawlError: crawlCount };
+
+            
+        } catch (error) {
+            return{ 
+                crawlError: 0
+            }
+        }
+    }
+
+    public async getAvgPosition(urls: string[]) { 
+        try {
+            console.log('yu are to run once')
+            const siteUrl = new URL(urls[0]).origin + '/';
+            const normalizedUrls = urls.map(url => url.endsWith('/') ? url : `${url}/`);
+
+            console.log('the siteUrl and normalizedUrls are', siteUrl, normalizedUrls)
+            const now = new Date();
+            const endDate = this.formatDateToPT(now);
+            const startDate = this.formatDateToPT(new Date(now.setDate(now.getDate() - 30))); // Last 30 days
+    
+            const keywordData = await Promise.all(
+                normalizedUrls.map(url => 
+                    this.searchConsole.searchanalytics.query({
+                        siteUrl: siteUrl,
+                        requestBody: {
+                            startDate: startDate,
+                            endDate: endDate,
+                            dimensions: ['page'],
+                            dimensionFilterGroups: [
+                                {
+                                    filters: [
+                                        {
+                                            dimension: 'page',
+                                            operator: 'equals',
+                                            expression: url
+                                        }
+                                    ]
+                                }
+                            ],
+                            rowLimit: 10000 // Maximum number of rows to fetch
+                        }
+                    })
+                )
+            );
+
+            console.log('the keywordData is', JSON.stringify(keywordData, null, 2))
+    
+            // Count unique keywords and calculate average position
+            let totalPosition = 0;
+            let pageCount = 0;
+    
+            keywordData.forEach(response => {
+                if (!response.data.rows || response.data.rows.length === 0) return;
+    
+                // Extract unique queries (keywords) and their positions
+                response.data.rows.forEach(row => {
+                    const position = row.position || 0; // The position in search results
+                    totalPosition += position;
+                    pageCount++;
+
+                    console.log('the page count and position are', pageCount, position)
+                });
+
+            });
+    
+            // Calculate average position
+            const averagePosition = pageCount > 0 ? totalPosition / pageCount : 0;
+            return {
+                averagePosition
+            };
+        } catch (error: any) {
+            return {
+                averagePosition: 0
+            }
+        }
+    }
+
+    private async getOldGA4Metric(metric: string, urls: string[], trackingCode: string, retries = 3): Promise<number> {
+        try {
+            // Extract the slug from URLs
+            const slugs = urls.map(url => {
+
+            try {
+                const urlObj = new URL(url);
+                // Remove leading/trailing slashes and get the slug
+                return urlObj.pathname.replace(/^\/|\/$/g, '');
+            } catch {
+                // If URL parsing fails, assume it's already a slug
+                return url.replace(/^\/|\/$/g, '');
+            }
+        });
+
+        const response = await this.analyticsData.properties.runReport({
+            property: trackingCode,
+            auth: this.oAuth2Client,
+            requestBody: {
+                dateRanges: [{ startDate: '60daysAgo', endDate: '30daysAgo' }],
+                dimensions: [{ name: 'pagePath' }],
+                metrics: [{ name: metric }],
+                dimensionFilter: {
+                    orGroup: {
+                        expressions: slugs.map(slug => ({
+                            filter: {
+                                fieldName: 'pagePath',
+                                stringFilter: {
+                                    matchType: 'CONTAINS',
+                                    value: slug
+                                }
+                            }
+                        }))
+                    }
+                }
+            }
+        });
+
+            // Check if rows exist
+        if (!response.data.rows || response.data.rows.length === 0) {
+            console.warn('No data found for the specified URLs and metric.');
+            return 0
+            // throw ErrorBuilder.badRequest('No data found for the specified URLs and metric. Please check the property ID and URLs.');
+        }
+        console.log('response is', JSON.stringify(response.data, null, 2));
+        // Convert string value to number
+
+        const value = response.data.rows?.[0]?.metricValues?.[0]?.value;
+        console.log('value is', value);
+        console.log('value float is', value ? parseFloat(value) : 0);
+        return value ? parseFloat(value) : 0;
+
+       
+        } catch (error) {
+            if (retries > 0) {
+                console.warn(`Retrying ${metric} (${retries} attempts left)...`);
+                await new Promise(resolve => setTimeout(resolve, 2000)); // 2-second delay
+                return this.getOldGA4Metric(metric, urls, trackingCode, retries - 1);
+            }
+            console.error(`Error fetching ${metric}:`, error);
+            return 0;
+        }
+    }
 }
+
