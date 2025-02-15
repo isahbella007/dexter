@@ -72,7 +72,7 @@ export class WixService {
        // Construct authorization URL
        return `https://www.wix.com/installer/install/?` + // Changed to legacy authorize endpoint
        `appId=${this.clientId}&` + // Parameter name changed to client_id
-       `redirectUrl=${encodeURIComponent(this.finalDevelopmentRedirectUri)}&` +
+       `redirectUrl=${encodeURIComponent(this.finalProductionRedirectUri)}&` +
       `state=${state}` 
 
 
@@ -110,7 +110,7 @@ console.log('token =>', token)
          return `https://www.wix.com/installer/install/?` + // Changed to legacy authorize endpoint
          `token=${token}&` + // Parameter name changed to client_id
          `appId=${this.clientId}&` + // Parameter name changed to client_id
-         `redirectURL=${encodeURIComponent(this.finalDevelopmentRedirectUri)}`
+         `redirectURL=${encodeURIComponent(this.finalProductionRedirectUri)}`
 
 
     }catch(error){ 

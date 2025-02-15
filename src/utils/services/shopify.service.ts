@@ -12,7 +12,7 @@ export class ShopifyService {
     constructor() { 
         this.clientId = config.shopify.clientId
         this.clientSecret = config.shopify.clientSecret
-        this.redirectUri = config.shopify.developmentRedirectUri
+        this.redirectUri = config.shopify.productionRedirectUri
         this.scopes = 'write_content,read_content'
     }
 

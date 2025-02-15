@@ -21,7 +21,7 @@ export class GoogleAnalyticsService {
     constructor(accessToken: string, refreshToken: string, expiryDate: number) {
         this.googleClientId = config.google.clientId; 
         this.googleClientSecret = config.google.clientSecret;
-        this.googleRedirectUri = config.google.developmentRedirectUri;
+        this.googleRedirectUri = config.google.productionRedirectUri;
         this.oAuth2Client = new OAuth2Client(this.googleClientId, this.googleClientSecret, this.googleRedirectUri);
 
         // Set the saved tokens

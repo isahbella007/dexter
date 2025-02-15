@@ -15,8 +15,8 @@ export class GoogleOAuthHandler {
       // You'll get these values from Google Cloud Console
       this.CLIENT_ID = config.google.clientId;
       this.CLIENT_SECRET = config.google.clientSecret;
-      // this.REDIRECT_URI = config.google.productionRedirectUri; // Change in production
-      this.REDIRECT_URI = config.google.developmentRedirectUri;
+      this.REDIRECT_URI = config.google.productionRedirectUri; // Change in production
+      // this.REDIRECT_URI = config.google.developmentRedirectUri;
   
       this.oAuth2Client = new OAuth2Client(
         this.CLIENT_ID,

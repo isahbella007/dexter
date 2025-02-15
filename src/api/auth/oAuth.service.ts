@@ -15,7 +15,7 @@ export class OAuthService{
                     grant_type: 'authorization_code',
                     client_id: config.hubspot.clientId,
                     client_secret: config.hubspot.clientSecret,
-                    redirect_uri: config.hubspot.developmentRedirectUri, //TODO:: always keep this to be on the production redirect url
+                    redirect_uri: config.hubspot.productionRedirectUri, //TODO:: always keep this to be on the production redirect url
                     code: code
                 }
             })
