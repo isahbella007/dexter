@@ -78,6 +78,7 @@ if (error) {
 export const config = {
   allowedDevOrigins: 'http://localhost:5173',
   allowedProdOrigins: 'https://my-dexter.vercel.app',
+  allowedAdminProdOrigins: 'https://dexter-admin-theta.vercel.app/',
   env: envVars.NODE_ENV,
   port: envVars.PORT,
   mongodbUri: envVars.MONGODB_URI,

@@ -4,7 +4,7 @@ import { IBlogPost } from "../../../models/interfaces/BlogPostInterfaces"
 import { ErrorBuilder } from "../../../utils/errors/ErrorBuilder"
 import { mainKeywordFormatter } from "../../../utils/helpers/formatter"
 import { AIServiceFactory } from "../../../utils/services/aiServices/AIServiceFactory"
-import { replaceImagePlaceholders } from "../../../utils/services/imageGeneration.service"
+import { regenerateBlogImage, replaceImagePlaceholders, updateImagePlaceholder } from "../../../utils/services/imageGeneration.service"
 import { subscriptionFeatureService } from "../../../utils/subscription/subscriptionService"
 import { blogPostService } from "../blog.service"
 
@@ -79,6 +79,40 @@ export class SingleBlogPostService {
         })
         await blogPost.save()
         return blogPost
+    }
+
+    async refreshImage(identifier: string, blogPostId: string): Promise<string | null> {
+        const blogPost = await BlogPost.findById(blogPostId);
+
+        if (!blogPost) {
+            console.error(`Blog post with ID "${blogPostId}" not found.`);
+            throw ErrorBuilder.notFound('Blog post not found')
+        }
+
+        // Extract the prompt
+        const regex = new RegExp(`!\\[(${identifier}): (.*?)\\]\\((.*?)\\)`);
+        const match = blogPost.content.match(regex);
+        if (!match) {
+            console.error(`Image with identifier "${identifier}" not found in blog post.`);
+            throw ErrorBuilder.notFound('Identifier post not found in blog post')
+        }
+        const [, , prompt] = match;
+
+        // Regenerate the image
+        const newImageUrl = await regenerateBlogImage(prompt);
+        if (!newImageUrl) {
+            console.error('Failed to regenerate image.');
+            throw ErrorBuilder.internal('Failed to regenerate image')
+        }
+
+        // Update the placeholder in the content
+        const updatedContent = updateImagePlaceholder(blogPost.content, identifier, newImageUrl);
+
+        // Save the updated blog post
+        blogPost.content = updatedContent;
+        await blogPost.save();
+
+        return updatedContent;
     }
 }
 

@@ -30,4 +30,6 @@ blogPostRoutes.delete('/delete-blog-post',  blogPostController.deleteBlogPost)
 // post history 
 blogPostRoutes.get('/history', blogPostController.getBlogPostHistory)
 
+// refresh blog image 
+blogPostRoutes.post('/refresh', blogPostController.refreshBlogImage)
 export default blogPostRoutes; 

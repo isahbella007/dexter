@@ -67,3 +67,8 @@ export const generateHook = Joi.object({
     blogPostId: Joi.string().required(),
     
 })
+
+export const refreshBlogImage = Joi.object({ 
+    blogPostId: Joi.string().required(), 
+    identifier: Joi.string().required()
+})

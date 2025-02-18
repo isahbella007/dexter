@@ -106,8 +106,9 @@ export class AIPromptBuilder {
         - Use *italic* for emphasis
         - Include a table if relevant
         - End with an FAQ section if relevant
-        - After the title and introduction, include image placeholders like [IMAGE: description].  
-        - **For each image placeholder, generate a detailed and descriptive prompt suitable for a text-to-image AI model like Leonardo AI.  The prompt should clearly describe the desired image content, style, and composition.**
+        - After the title and introduction, include ONE image placeholder like ![IMAGE: description] for the header image.
+        - Include ONE additional image placeholder at the most relevant point in the content.
+        - **For each image placeholder, generate a detailed and descriptive prompt suitable for a text-to-image AI model like Leonardo AI. The prompt should clearly describe the desired image content, style, and composition.**
         `;
 
         let userPrompt = `Write a comprehensive blog post about ${mainKeyword}. 

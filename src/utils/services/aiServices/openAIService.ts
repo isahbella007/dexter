@@ -24,6 +24,7 @@ export class OpenAIService implements BaseAIService {
                 max_tokens: keywordPresent ? 2500 : 1500,
             });
 
+            console.log('Content' , completion.choices[0].message?.content)
             return completion.choices[0].message?.content || '';
         } catch (error) {
             throw ErrorBuilder.internal("Failed to generate AI response");

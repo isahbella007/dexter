@@ -1,18 +1,24 @@
 import axios from 'axios';
 import { config } from '../../config';
+// Helper function for delaying execution
+function delay(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
-export async function generateBlogImage(prompt: string): Promise<string> {
+export async function generateBlogImage(prompt: string): Promise<{imageUrl: string, imageUrlId: string}> {
     // Replace with your actual Leonardo AI API call
     const apiKey = config.imageGeneration.leonardoAI 
-    const apiUrl = 'https://something.com'
-    const defaultModelId = "6bef9f1b-29cb-40c7-b9df-32b51c1f67d3" //creative model  
+    const apiUrl = 'https://cloud.leonardo.ai/api/rest/v1/generations'
+    const defaultModelId = "b2614463-296c-462a-9586-aafdb8f00e36" //flux dev model  
 
     try {
         const response = await axios.post(apiUrl, {
             prompt: prompt,
             modelId: defaultModelId, 
             width: 512, 
-            height: 512
+            height: 512, 
+            num_images: 1, 
+            styleUUID: "111dc692-d470-4eec-b791-3475abac4c46" //dynamic
         }, {
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
@@ -20,53 +26,172 @@ export async function generateBlogImage(prompt: string): Promise<string> {
             },
         });
 
-        // Adapt this based on Leonardo AI's response structure
-        if (response.data && response.data.generations && response.data.generations.length > 0 && response.data.generations[0].url) {
-            return response.data.generations[0].url; // Get the URL of the first generated image
-        } else {
-            console.error('Leonardo AI did not return an image URL:', response.data);
-            return ''; // Return empty string on failure
+        console.log('API Cost', response.data.sdGenerationJob)
+        // Extract the generationId
+        const generationId = response.data.sdGenerationJob?.generationId
+        if(!generationId){ 
+            console.error("Leonardo AI did not return a generation Id")
+            return  {imageUrl: '', imageUrlId: ''}
         }
+
+        // Reterive the Image 
+        const getImageUrl = `${apiUrl}/${generationId}`
+        let retries = 3
+        let imageUrl = ''
+        let imageUrlId = ''
+
+        while (retries > 0 && !imageUrl){ 
+            await delay(5000)
+            try{ 
+                const getResponse = await axios.get(getImageUrl, {
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                    },
+                });
+                // console.log("Get response from Leonardo AI", getResponse)
+
+                // Check if the generation is complete and get the URL
+                if (getResponse.data?.generations_by_pk?.status == 'COMPLETE' ) {
+                    console.log('generated image =>', JSON.stringify(getResponse.data.generations_by_pk.generated_images, null, 2) )
+                    imageUrl = getResponse.data.generations_by_pk.generated_images[0].url;
+                    imageUrlId = getResponse.data.generations_by_pk.generated_images[0].id;
+                } else {
+                    console.log('Image not ready yet, retrying...');
+                    retries--;
+                }
+            }catch (getError) {
+                console.error('Error retrieving image from Leonardo AI:', getError);
+                retries--;
+                await delay(2000); // Wait a bit longer after an error
+            }
+        }
+
+        if (!imageUrl || !imageUrlId) {
+            console.error(`Failed to retrieve image after multiple retries for generationId: ${generationId}`);
+            return  {imageUrl: '', imageUrlId: ''}
+        }
+
+        return {imageUrl, imageUrlId};
+    
+    } catch (error) {
+        console.error('Error fetching image from Leonardo AI:', error);
+        return  {imageUrl: '', imageUrlId: ''} // Return empty string on error
+    }
+}
+
+export async function regenerateBlogImage(prompt: string): Promise<string> {
+    const apiKey = config.imageGeneration.leonardoAI;
+    const apiUrl = 'https://cloud.leonardo.ai/api/rest/v1/generations';
+    const defaultModelId = "b2614463-296c-462a-9586-aafdb8f00e36"; //flux dev model
+
+    try {
+        const response = await axios.post(apiUrl, {
+            prompt: prompt,
+            modelId: defaultModelId,
+            width: 512,
+            height: 512,
+            num_images: 1,
+            styleUUID: "111dc692-d470-4eec-b791-3475abac4c46"
+        }, {
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+            },
+        });
+
+        // Extract the generationId
+        const generationId = response.data.sdGenerationJob?.generationId;
+        if (!generationId) {
+            console.error("Leonardo AI did not return a generation Id");
+            return '';
+        }
+
+        // Retrieve the Image
+        const getImageUrl = `${apiUrl}/${generationId}`;
+        let retries = 5; // Increased retries
+        let imageUrl = '';
+
+        while (retries > 0 && !imageUrl) {
+            await delay(5000); // Increased initial delay to 10 seconds
+            try {
+                const getResponse = await axios.get(getImageUrl, {
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                    },
+                });
+                // console.log("Get response from Leonardo AI", getResponse)
+
+                // Check if the generation is complete and get the URL
+                if (getResponse.data?.generations_by_pk?.status === 'COMPLETE') {
+                    // console.log('generated image =>', getResponse.data.generations_by_pk.generated_images);
+                    imageUrl = getResponse.data.generations_by_pk.generated_images[0].url;
+                } else {
+                    console.log('Image not ready yet, retrying...');
+                    retries--;
+                }
+            } catch (getError) {
+                console.error('Error retrieving image from Leonardo AI:', getError);
+                retries--;
+                await delay(5000); // Wait a bit longer after an error.  Increased to 5 seconds
+            }
+        }
+
+        if (!imageUrl) {
+            console.error(`Failed to retrieve image after multiple retries for generationId: ${generationId}`);
+            return '';
+        }
+      return imageUrl
     } catch (error) {
         console.error('Error fetching image from Leonardo AI:', error);
         return ''; // Return empty string on error
     }
 }
 
-export async function replaceImagePlaceholders(content: string): Promise<string> { // No imagePrompts parameter
+export function updateImagePlaceholder(
+    originalContent: string,
+    identifier: string,
+    newImageUrl: string
+): string {
+    const regex = new RegExp(`!\\[(${identifier}): (.*?)\\]\\((.*?)\\)`);
+    const match = originalContent.match(regex);
+
+    if (!match) {
+        console.warn(`Image placeholder with identifier "${identifier}" not found.`);
+        return originalContent; // Return original content if not found
+    }
+
+    const [, , originalAltText] = match; // Extract the original alt text
+    const newPlaceholder = `![${identifier}: ${originalAltText}](${newImageUrl})`;
+
+    return originalContent.replace(regex, newPlaceholder);
+}
+
+export async function replaceImagePlaceholders(content: string): Promise<string> {
     const imagePlaceholderRegex = /\[IMAGE: (.*?)\]/g;
-    let match;
-    const promises = [];
-    const placeholders = [];
-    const imagePrompts: string[] = [];
+    const matches = [...content.matchAll(imagePlaceholderRegex)];
 
-    // Collect all placeholders and create promises
-    while ((match = imagePlaceholderRegex.exec(content)) !== null) {
-        placeholders.push(match[0]); // Store the original placeholder
-        imagePrompts.push(match[1]); // Extract and store the prompt
-    }
+    // Limit to first two image placeholders
+    const limitedMatches = matches.slice(0, 2);
 
-    // Create promises for each image generation
-    for (const prompt of imagePrompts) {
-        promises.push(generateBlogImage(prompt));
-    }
+    // console.log('The limited matches are', limitedMatches)
+
+    const promises = limitedMatches.map(match => generateBlogImage(match[1]));
 
     // Fetch all images concurrently
     const imageUrls = await Promise.all(promises);
 
     // Replace placeholders with image URLs
     let updatedContent = content;
-    for (let i = 0; i < placeholders.length; i++) {
-        const placeholder = placeholders[i];
+    for (let i = 0; i < limitedMatches.length; i++) {
+        const placeholder = limitedMatches[i][0];
         const imageUrl = imageUrls[i];
-        const imageDescription = imagePlaceholderRegex.exec(placeholder)![1]; //gets the image description for alt text
+        const imageDescription = limitedMatches[i][1];
 
         if (imageUrl) {
-            updatedContent = updatedContent.replace(placeholder, `![${imageDescription}](${imageUrl})`);
+            updatedContent = updatedContent.replace(placeholder, `[${imageUrl.imageUrlId}: ${imageDescription}](${imageUrl.imageUrl})`);
         } else {
             updatedContent = updatedContent.replace(placeholder, ''); // Remove placeholder if no image
         }
-         imagePlaceholderRegex.lastIndex = 0;
     }
 
     return updatedContent;

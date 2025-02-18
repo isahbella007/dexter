@@ -3,10 +3,11 @@ import { ErrorBuilder } from '../../utils/errors/ErrorBuilder';
 import { IUser } from '../../models/interfaces/UserInterface';
 import { ResponseFormatter } from '../../utils/errors/ResponseFormatter';
 import { asyncHandler } from '../../utils/helpers/asyncHandler';
-import { blogPostKeyWordsUpdate, generateBlogPost, generateBulkArticles, generateBulkKeywords, generateBulkTitle, generateHook, generateSingleTemplate, getBlogPostSchema, updateBlogPost, updateBlogPostSection } from './blog.schema';
+import { blogPostKeyWordsUpdate, generateBlogPost, generateBulkArticles, generateBulkKeywords, generateBulkTitle, generateHook, generateSingleTemplate, getBlogPostSchema, refreshBlogImage, updateBlogPost, updateBlogPostSection } from './blog.schema';
 import { singleBlogPostService } from './services/single.services';
 import { bulkBlogPostService } from './services/bulk.services';
 import { crudBlogPostService } from './services/crud.services';
+import { orderIndependentDiff } from 'deep-diff';
 
 export const blogPostController = {
 
@@ -147,6 +148,14 @@ export const blogPostController = {
         const response = await crudBlogPostService.editBlogPostSection((req.user as IUser)._id, blogPostId, value)
         ResponseFormatter.success(res, response, 'Blog post section updated');
     }),
+
+    refreshBlogImage: asyncHandler(async(req:Request, res:Response) => {
+        const {value, error} = refreshBlogImage.validate(req.body)
+        if(error) throw ErrorBuilder.badRequest(error.details[0].message)
+
+        const updatedContent = await singleBlogPostService.refreshImage(value.identifier, value.blogPostId)
+        ResponseFormatter.success(res, updatedContent, 'Image Refreshed')
+    })
 
     
 }
