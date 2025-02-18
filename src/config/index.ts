@@ -63,6 +63,8 @@ const configSchema = Joi.object({
     UNSPLASH_APPLICATION_ID: Joi.string().required(),
     UNSPLASH_ACCESS_KEY: Joi.string().required(),
     UNSPLASH_SECRET_KEY: Joi.string().required(),
+
+    LEONARDO_API_KEY: Joi.string().required()
 }).unknown();
 
 // Validate and extract the config
@@ -142,6 +144,10 @@ export const config = {
     applicationId: envVars.UNSPLASH_APPLICATION_ID,
     accessKey: envVars.UNSPLASH_ACCESS_KEY,
     secretKey: envVars.UNSPLASH_SECRET_KEY
+  }, 
+
+  imageGeneration: {
+    leonardoAI: envVars.LEONARDO_API_KEY
   }
   
 } as const;

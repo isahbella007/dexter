@@ -10,7 +10,7 @@ subscriberRouter.get('/history', SubscriberController.getSubscriberHistory)
 subscriberRouter.get('/history/export/csv', SubscriberController.exportSubscriberHistoryCSV)
 subscriberRouter.get('/history/export/pdf', SubscriberController.exportSubscriberHistoryPDF)
 
-
+subscriberRouter.get('/payment', SubscriberController.getPayment)
 subscriberRouter.get('/export/csv', SubscriberController.exportSubscribersCSV)
 subscriberRouter.get('/export/pdf', SubscriberController.exportSubscribersPDF)
 

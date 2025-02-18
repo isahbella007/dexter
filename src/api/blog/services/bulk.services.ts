@@ -6,7 +6,7 @@ import { IBlogPost, IGenerationBatchArticle } from "../../../models/interfaces/B
 import { ErrorBuilder } from "../../../utils/errors/ErrorBuilder";
 import { AIServiceFactory } from "../../../utils/services/aiServices/AIServiceFactory";
 import { openAIService } from "../../../utils/services/openAIService";
-import { replaceImagePlaceholders } from "../../../utils/services/unsplash.service";
+import { replaceImagePlaceholders } from "../../../utils/services/imageGeneration.service";
 import { subscriptionFeatureService } from "../../../utils/subscription/subscriptionService";
 import { blogPostService } from "../blog.service";
 

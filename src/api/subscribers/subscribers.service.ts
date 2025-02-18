@@ -4,6 +4,26 @@ import { User } from "../../models/User"
 import { ErrorBuilder } from "../../utils/errors/ErrorBuilder";
 import { generateAllStatusHistoryCSV, generateAllStatusHistoryPDF, generateStatusHistoryCSV, generateStatusHistoryPDF } from "../../utils/helpers/exportHelper";
 
+interface PaymentInfo {
+    subscriberEmail: string;
+    paymentAmount: number | undefined;
+    paymentMethod: string | undefined;
+    invoiceDetails?: {
+        invoiceId?: string;
+        hostedInvoiceUrl?: string;
+        invoiceUrl?: string;
+    };
+    paymentStatus: string | undefined;
+    paymentStartDate: Date | undefined;
+    paymentEndDate: Date | undefined 
+  }
+  
+  interface PaymentHistoryResponse {
+      payments: PaymentInfo[];
+      totalPayments: number;
+      totalPages: number;
+  }
+
 export class SubscribersService { 
     async getSubscribers( page: number = 1, limit: number = 10) {
         const skip = (page - 1) * limit;
@@ -130,10 +150,10 @@ export class SubscribersService {
                 }));
         
                 return {
-                userEmail: (log.user as any)?.email,
-                authoredBy: (log.admin as any)?.email,
-                changes,
-                createdAt: log.createdAt
+                    userEmail: (log.user as any)?.email,
+                    authoredBy: (log.admin as any)?.email,
+                    changes,
+                    createdAt: log.createdAt
                 };
             });
         
@@ -145,10 +165,10 @@ export class SubscribersService {
                 auditLogs: formattedLogs,
                 pagination: { 
                     currentPage: page,
-                totalPages,
-                totalItems: totalCount,
-                hasNextPage: page < totalPages,
-                hasPreviousPage: page > 1
+                    totalPages,
+                    totalItems: totalCount,
+                    hasNextPage: page < totalPages,
+                    hasPreviousPage: page > 1
                 }
             };
     
@@ -157,6 +177,100 @@ export class SubscribersService {
         }
         
     }
+
+
+    async getPaymentHistory (page: number,limit: number, startDate?: Date,endDate?: Date,subscriber?: string, status?: string, price?: number): Promise<PaymentHistoryResponse> {     
+        try{ 
+            // 1. Build the Query
+            const query: any = {};
+                
+            // Date range filter
+            if (startDate || endDate) {
+                
+                query['subscription.statusHistory.date'] = {};
+                if (startDate) {
+                    query['subscription.statusHistory.date'].$gte = startDate;
+                }
+                if (endDate) {
+                    query['subscription.statusHistory.date'].$lte = endDate;
+                }
+            }
+
+            // Subscriber filter (assuming email for now, could be adapted)
+            if (subscriber) {
+                query.$or = [
+                    { email: subscriber },
+                    // Add other fields to search by if needed (e.g., name)
+                ];
+            }
+
+            // Status filter
+            if (status) {
+                query['subscription.statusHistory.status'] = status;
+            }
+
+            if(price){ 
+                query['subscription.statusHistory.price'] = price
+            }
+            // 2.  Get Total Count (for pagination)
+            // The aggregation pipeline is constructed based on the query built in step 1.
+            const totalPaymentsAggregation = await User.aggregate([
+                { $match: query }, // Apply filters from the initial query
+                { $unwind: '$subscription.statusHistory' }, // Deconstruct the statusHistory array
+                { $match: query },  // IMPORTANT: Apply the filters *again* after unwinding
+                { $count: 'total' } // Count the resulting documents
+            ]);
+
+            const totalPayments = totalPaymentsAggregation.length > 0 ? totalPaymentsAggregation[0].total : 0;
+            const totalPages = Math.ceil(totalPayments / limit);
+
+            // 3. Perform the Paginated Query with Aggregation
+            const paymentsAggregation = await User.aggregate([
+                { $match: query }, // Initial filter
+                { $unwind: '$subscription.statusHistory' }, // Deconstruct statusHistory
+                { $match: query }, // Re-apply filters after unwind!  Crucial.
+                {
+                    $project: {
+                        _id: 0,
+                        subscriberEmail: '$email',
+                        paymentAmount: '$subscription.statusHistory.price',
+                        paymentMethod: '$subscription.statusHistory.paymentMethod',
+                        invoiceDetails: {
+                            invoiceId: '$subscription.statusHistory.invoiceId',
+                            hostedInvoiceUrl: '$subscription.statusHistory.hostedInvoiceUrl',
+                            invoiceUrl: '$subscription.statusHistory.invoiceUrl',
+                        },
+                        paymentStatus: '$subscription.statusHistory.status',
+                        paymentStartDate: '$subscription.statusHistory.startDate',
+                        paymentEndDate: '$subscription.statusHistory.endDate'
+                    },
+                },
+                { $sort: { 'transactionId': -1 } }, // Sort by transaction ID (or date)
+                { $skip: (page - 1) * limit },
+                { $limit: limit },
+            ]);
+
+            // 4.  Format and Return Results
+            const payments: PaymentInfo[] = paymentsAggregation.map(payment => ({
+                subscriberEmail: payment.subscriberEmail,
+                paymentAmount: payment.paymentAmount,
+                paymentMethod: payment.paymentMethod,
+                invoiceDetails: payment.invoiceDetails,
+                paymentStatus: payment.paymentStatus, 
+                paymentStartDate: payment.paymentStartDate, 
+                paymentEndDate: payment.paymentEndDate
+            }));
+
+            return {
+                payments,
+                totalPayments,
+                totalPages
+            };
+        }catch(error: any){ 
+            throw ErrorBuilder.internal(error.message)
+        }
+       
+    };
 }
 
 export const subscribersService = new SubscribersService()

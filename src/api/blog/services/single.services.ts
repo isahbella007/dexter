@@ -4,7 +4,7 @@ import { IBlogPost } from "../../../models/interfaces/BlogPostInterfaces"
 import { ErrorBuilder } from "../../../utils/errors/ErrorBuilder"
 import { mainKeywordFormatter } from "../../../utils/helpers/formatter"
 import { AIServiceFactory } from "../../../utils/services/aiServices/AIServiceFactory"
-import { replaceImagePlaceholders } from "../../../utils/services/unsplash.service"
+import { replaceImagePlaceholders } from "../../../utils/services/imageGeneration.service"
 import { subscriptionFeatureService } from "../../../utils/subscription/subscriptionService"
 import { blogPostService } from "../blog.service"
 
